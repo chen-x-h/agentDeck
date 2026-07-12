@@ -1,0 +1,41 @@
+{
+  "title": "Scheme Color dk1 Test",
+  "slide_width": 12192000,
+  "slide_height": 6858000,
+  "color_scheme": "经典黑",
+  "slides": [
+    {
+      "id": 0,
+      "shapes": [
+        {
+          "id": "0-title",
+          "type": "textbox",
+          "left": 914400,
+          "top": 914400,
+          "width": 9144000,
+          "height": 914400,
+          "text_content": [
+            {
+              "runs": [{"text": "Scheme dk1 color text", "font_size": 355600, "color": "1A1A1A"}],
+              "alignment": "left"
+            }
+          ]
+        },
+        {
+          "id": "0-accent",
+          "type": "textbox",
+          "left": 914400,
+          "top": 2286000,
+          "width": 9144000,
+          "height": 914400,
+          "text_content": [
+            {
+              "runs": [{"text": "Custom color text", "font_size": 355600, "color": "AABBCC"}],
+              "alignment": "left"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

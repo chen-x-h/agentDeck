@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>PPT Render Engine</title>
+<style>
+:root{--bg:#f0f2f5;--surface:#fff;--primary:#1a73e8;--primary-hover:#1557b0;--border:#d0d5dd;--text:#1d1d1f;--text-secondary:#6b7280;--success:#16a34a;--danger:#dc2626;--radius:8px;--shadow:0 1px 3px rgba(0,0,0,.08)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between}
+header h1{font-size:18px;font-weight:600}
+header nav{display:flex;gap:6px}
+.layout{display:flex;gap:16px;padding:16px;height:calc(100vh - 53px)}
+.panel{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;overflow:auto}
+.panel-left{width:420px;min-width:420px;display:flex;flex-direction:column;gap:10px}
+.panel-right{flex:1;display:flex;flex-direction:column;gap:12px;overflow:hidden}
+.upload-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:18px 24px;text-align:center;cursor:pointer;transition:border-color .2s;flex-shrink:0}
+.upload-zone:hover,.upload-zone.dragover{border-color:var(--primary)}
+.upload-zone.has-file{border-color:var(--success);border-style:solid}
+.upload-zone .hint{font-size:12px;color:var(--text-secondary);margin-top:2px}
+.row{display:flex;gap:8px;align-items:center;flex-shrink:0}
+.row label{font-size:12px;font-weight:500;white-space:nowrap;min-width:54px}
+.row select,.row input{flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface)}
+.btn{padding:6px 14px;border:none;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;transition:background .2s;flex-shrink:0}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-hover)}
+.btn-success{background:var(--success);color:#fff}
+.btn-success:hover{background:#15803d}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{background:#f3f4f6}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* ---- Shape list ---- */
+#shape-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px;min-height:0;padding-right:2px}
+#shape-list:empty::after{content:'请上传 ZIP/JSON 文件';display:block;color:var(--text-secondary);font-size:13px;text-align:center;padding:40px 0}
+.shape-card{border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:border-color .2s,box-shadow .2s;flex-shrink:0;background:#fafbfc}
+.shape-card:hover{border-color:var(--primary);box-shadow:0 1px 3px rgba(26,115,232,.12)}
+.shape-card.selected{border-color:var(--primary);box-shadow:0 0 0 2px rgba(26,115,232,.2);background:#eaf3ff}
+.shape-card-header{display:flex;align-items:center;gap:6px;padding:8px 10px}
+.shape-type-icon{width:18px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0}
+.type-textbox{background:#5b9bd5}
+.type-shape{background:#70ad47}
+.type-image{background:#ed7d31}
+.type-table{background:#9b59b6}
+.shape-name{font-weight:600;color:var(--text);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px;flex-shrink:0}
+.shape-text-preview{color:var(--text-secondary);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.shape-pos{color:var(--text-secondary);font-size:10px;white-space:nowrap;flex-shrink:0;font-family:monospace}
+.shape-expand{font-size:10px;color:var(--text-secondary);flex-shrink:0;transition:transform .2s}
+.shape-expand.open{transform:rotate(90deg)}
+.shape-card-details{display:none;padding:8px 10px;border-top:1px solid var(--border);font-size:11px;color:var(--text);background:#f8f9fb;border-radius:0 0 6px 6px}
+.shape-card.open .shape-card-details{display:block}
+.shape-card.open{border-color:#b3d4fc}
+.detail-row{display:flex;gap:12px;padding:2px 0}
+.detail-label{color:var(--text-secondary);min-width:70px;flex-shrink:0}
+.detail-value{flex:1;word-break:break-all}
+.color-swatch{display:inline-block;width:14px;height:14px;border-radius:2px;border:1px solid var(--border);vertical-align:middle;margin-right:4px}
+.para-block{margin:4px 0;padding:4px 6px;background:#fff;border-radius:4px;border:1px solid #e5e7eb}
+.run-text{font-weight:500}
+.run-meta{color:var(--text-secondary);font-size:10px;margin-left:4px}
+.empty-shape{color:var(--text-secondary);font-style:italic;font-size:11px;padding:4px 0}
+
+/* ---- Slide preview ---- */
+.preview-header{display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.preview-nav{display:flex;align-items:center;gap:6px;font-size:12px}
+.preview-nav button{border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;font-size:13px;padding:0 8px;height:26px;display:flex;align-items:center}
+.preview-nav button:hover{background:#f3f4f6}
+.preview-nav button:disabled{opacity:.4}
+#preview-area{flex:1;display:flex;align-items:center;justify-content:center;position:relative;overflow:auto;background:#f7f8fa;border-radius:6px;min-height:200px}
+#preview-area .placeholder{color:var(--text-secondary);font-size:13px}
+#slide-container{position:relative;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.12);border-radius:4px;background:#fff}
+#slide-container .shape-el{position:absolute;cursor:pointer;border:1px solid transparent;transition:border-color .1s,box-shadow .1s,background .1s;overflow:hidden;display:flex;flex-direction:column;white-space:pre-wrap}
+#slide-container .shape-el:hover{border-color:var(--primary);z-index:999}
+#slide-container .shape-el.selected{border-color:var(--primary);box-shadow:inset 0 0 0 2px var(--primary);z-index:1000;background:rgba(26,115,232,.04)}
+#slide-container .shape-table{display:flex;flex-direction:column;width:100%;height:100%}
+#slide-container .shape-table .tr{display:flex;flex:1}
+#slide-container .shape-table .td{flex:1;border:1px solid var(--border);padding:2px 4px;overflow:hidden;font-size:10px;display:flex;align-items:center}
+#slide-container .shape-table .td.has-bg{color:#fff}
+
+.selection-bar{display:flex;align-items:center;gap:8px;font-size:12px;flex-shrink:0;padding:4px 0}
+#sel-info{font-size:11px;color:var(--text-secondary);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---- Edit inputs ---- */
+.edit-pos{width:58px;padding:1px 3px;border:1px solid var(--border);border-radius:3px;font-size:10px;font-family:monospace}
+.edit-hex{width:70px;padding:1px 3px;border:1px solid var(--border);border-radius:3px;font-size:10px;font-family:monospace}
+.edit-picker{width:24px;height:20px;padding:0;border:1px solid var(--border);border-radius:3px;cursor:pointer;vertical-align:middle}
+.edit-text{padding:2px 4px;border:1px solid var(--border);border-radius:3px;font-size:11px}
+.edit-pt{width:36px;padding:1px 2px;border:1px solid var(--border);border-radius:3px;font-size:10px}
+.shape-json-toggle{font-size:10px;padding:2px 8px;margin-top:4px}
+/* ---- Modals ---- */
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.35);z-index:2000;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal-overlay .modal-box{background:var(--surface);border-radius:var(--radius);display:flex;flex-direction:column}
+.modal-overlay .modal-header{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.modal-overlay .modal-header span{font-weight:600;font-size:13px}
+.modal-overlay .modal-close{background:none;border:none;font-size:18px;cursor:pointer;color:var(--text-secondary);padding:0 4px;line-height:1;outline:none}
+.modal-overlay .modal-close:hover{color:var(--text)}
+.modal-overlay iframe{flex:1;border:none;width:100%;display:block}
+#json-textarea{flex:1;border:none;padding:10px 14px;font-family:monospace;font-size:11px;resize:vertical;min-height:240px;outline:none}
+#json-modal .modal-footer{display:flex;gap:8px;justify-content:flex-end;padding:8px 12px;border-top:1px solid var(--border);flex-shrink:0}
+
+.image-card{border:1px solid var(--border);border-radius:6px;overflow:hidden;background:#fff;width:140px;flex-shrink:0;cursor:default}
+.image-card .thumb{width:140px;height:90px;display:flex;align-items:center;justify-content:center;background:#f3f4f6;overflow:hidden;border-bottom:1px solid var(--border)}
+.image-card .thumb img{max-width:100%;max-height:100%;display:block}
+.image-card .info{padding:4px 6px;font-size:10px;color:var(--text-secondary)}
+.image-card .info .fname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:var(--text)}
+.image-card .actions{display:flex;gap:2px;padding:2px 6px 6px}
+.image-card .actions button{font-size:10px;padding:2px 6px}
+@media(max-width:900px){.layout{flex-direction:column;height:auto}.panel-left{width:100%;min-width:0;max-height:50vh}}
+</style>
+</head>
+<body>
+<header>
+<h1>PPT Render Engine</h1>
+<div style="display:flex;align-items:center;gap:8px">
+<button class="btn btn-outline" id="sync-load-btn">⬇ 同步</button>
+<button class="btn btn-outline" id="sync-save-btn">⬆ 更新</button>
+<button class="btn btn-outline" id="upload-json-btn">📂 上传文件</button>
+<button class="btn btn-outline" id="reset-btn">🔄 重置</button>
+<button class="btn btn-outline" id="open-image-btn">🖼 素材</button>
+<button class="btn btn-outline" id="download-json-btn" disabled>📥 下载 ZIP</button>
+</div>
+<nav><button class="btn btn-outline" id="open-convert-btn">PPTX→JSON</button><button class="btn btn-outline" id="open-config-btn">配置</button></nav>
+</header>
+<div class="layout">
+<div class="panel panel-left">
+<div class="upload-zone" id="upload-zone">
+<div class="hint" id="upload-hint">拖拽 JSON/ZIP 文件到此处，或点击选择</div>
+<input type="file" id="file-input" accept=".json,.zip" style="display:none">
+<input type="file" id="json-upload-input" accept=".json,.zip" style="display:none">
+</div>
+<div class="row"><label>模板</label><select id="tmpl-select"><option value="">—</option></select></div>
+<div class="row"><label>配色</label><select id="scheme-select"><option value="">—</option></select></div>
+<div class="row"><button class="btn btn-success" id="download-btn" disabled>下载 PPTX</button><button class="btn btn-outline" id="page-json-btn" disabled style="margin-left:auto">📄 本页 JSON</button></div>
+<div id="shape-list"></div>
+</div>
+<div class="panel panel-right">
+<div class="preview-header">
+<span style="font-size:13px;font-weight:500">预览</span>
+<div class="preview-nav">
+<button id="prev-slide" disabled>&lsaquo;</button>
+<span id="slide-indicator">0 / 0</span>
+<button id="next-slide" disabled>&rsaquo;</button>
+<button id="refresh-preview" class="btn btn-outline" disabled>刷新</button>
+</div>
+</div>
+<div id="preview-area"><span class="placeholder">请上传 JSON 文件</span></div>
+<div class="selection-bar">
+<span style="font-size:11px;font-weight:500;color:var(--text-secondary)">Ctrl+点击多选 / 点击空白取消</span>
+<span id="sel-info">未选中</span>
+</div>
+</div>
+</div>
+
+<!-- Shape JSON editor modal -->
+<div id="json-modal" class="modal-overlay">
+<div class="modal-box" style="width:75vw;max-width:720px;max-height:80vh">
+<div class="modal-header"><span>Shape JSON 编辑</span><button class="modal-close" id="json-modal-close">&times;</button></div>
+<textarea id="json-textarea" spellcheck="false"></textarea>
+<div class="modal-footer">
+<button class="btn btn-outline" id="json-modal-cancel">取消</button>
+<button class="btn btn-primary" id="json-modal-apply">应用</button>
+</div>
+</div>
+</div>
+
+<!-- Page JSON modal -->
+<div id="page-json-modal" class="modal-overlay">
+<div class="modal-box" style="width:75vw;max-width:720px;max-height:80vh">
+<div class="modal-header"><span>本页 JSON</span><button class="modal-close" id="page-json-modal-close">&times;</button></div>
+<textarea id="page-json-textarea" spellcheck="false" style="flex:1;border:none;padding:10px 14px;font-family:monospace;font-size:11px;resize:vertical;min-height:240px;outline:none"></textarea>
+<div class="modal-footer">
+<button class="btn btn-outline" id="page-json-cancel">关闭</button>
+<button class="btn btn-primary" id="page-json-apply">应用到当前页</button>
+</div>
+</div>
+</div>
+
+<!-- PPTX→JSON modal -->
+<div id="convert-modal" class="modal-overlay">
+<div class="modal-box" style="width:90vw;max-width:900px;height:85vh">
+<div class="modal-header"><span>PPTX → JSON</span><button class="modal-close" id="convert-modal-close">&times;</button></div>
+<iframe src="/convert-pptx"></iframe>
+</div>
+</div>
+
+<!-- Config modal -->
+<div id="config-modal" class="modal-overlay">
+<div class="modal-box" style="width:90vw;max-width:900px;height:85vh">
+<div class="modal-header"><span>配置管理</span><button class="modal-close" id="config-modal-close">&times;</button></div>
+<iframe src="/config"></iframe>
+</div>
+</div>
+
+<!-- Image material modal -->
+<div id="image-modal" class="modal-overlay">
+<div class="modal-box" style="width:80vw;max-width:800px;max-height:85vh">
+<div class="modal-header"><span>图片素材管理</span><button class="modal-close" id="image-modal-close">&times;</button></div>
+<div style="padding:10px 14px;flex:1;overflow:auto;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+<input type="file" id="image-upload-input" accept="image/*" style="display:none">
+<button class="btn btn-primary" id="image-upload-btn">📤 上传图片</button>
+<span id="image-upload-status" style="font-size:11px;color:var(--text-secondary)"></span>
+<button class="btn btn-outline" id="image-refresh-btn" style="margin-left:auto">刷新</button>
+</div>
+<div id="image-grid" style="display:flex;flex-wrap:wrap;gap:10px;flex:1;align-content:flex-start;overflow-y:auto;padding:4px">
+<span style="color:var(--text-secondary);font-size:12px">加载中...</span>
+</div>
+</div>
+</div>
+</div>
+
+<script src="/jszip.min.js"></script>
+<script>
+const state={jsonData:null,jsonText:'',fileName:'',currentSlide:0,totalSlides:0,slideWidth:12192000,slideHeight:6858000,shapes:[],selectedIds:[]};
+
+function saveState(){
+try{localStorage.setItem('ppt_state',JSON.stringify({
+jsonData:state.jsonData,jsonText:state.jsonText,fileName:state.fileName,
+currentSlide:state.currentSlide,
+template:tmplSelect&&tmplSelect.value,scheme:schemeSelect&&schemeSelect.value
+}))}catch(e){}
+}
+
+function restoreState(){
+try{
+const s=JSON.parse(localStorage.getItem('ppt_state'));
+if(!s||!s.jsonData||!s.jsonData.slides||!s.jsonData.slides.length)return;
+state.jsonData=s.jsonData; state.jsonText=s.jsonText||'';
+state.fileName=s.fileName||'';
+state.currentSlide=s.currentSlide||0;
+state.slideWidth=s.jsonData.slide_width||12192000;
+state.slideHeight=s.jsonData.slide_height||6858000;
+state.totalSlides=s.jsonData.slides.length;
+if(s.template&&tmplSelect.querySelector('option[value="'+CSS.escape(s.template)+'"]'))tmplSelect.value=s.template;
+if(s.scheme&&schemeSelect.querySelector('option[value="'+CSS.escape(s.scheme)+'"]'))schemeSelect.value=s.scheme;
+uploadHint.textContent=s.fileName||'已恢复上次会话';
+uploadZone.classList.add('has-file');
+downloadBtn.disabled=false;downloadJsonBtn.disabled=false;pageJsonBtn.disabled=false;
+ updateSlideNav();loadSlide(state.currentSlide);
+}catch(e){console.warn('restoreState',e)}
+}
+
+const $=(id)=>document.getElementById(id);
+const uploadZone=$('upload-zone'),fileInput=$('file-input'),uploadHint=$('upload-hint');
+const tmplSelect=$('tmpl-select'),schemeSelect=$('scheme-select');
+const downloadBtn=$('download-btn'),downloadJsonBtn=$('download-json-btn'),pageJsonBtn=$('page-json-btn');
+const prevBtn=$('prev-slide'),nextBtn=$('next-slide'),slideInd=$('slide-indicator'),refreshBtn=$('refresh-preview');
+const previewArea=$('preview-area'),shapeList=$('shape-list');
+const selInfo=$('sel-info');
+
+async function loadDropdowns(){
+try{
+const[tmplRes,schemeRes]=await Promise.all([fetch('/template/list'),fetch('/color-scheme/list')]);
+if(tmplRes.ok){const d=await tmplRes.json();d.templates.forEach(t=>{const o=document.createElement('option');o.value=t.name;o.textContent=t.name;tmplSelect.appendChild(o)})}
+if(schemeRes.ok){const d=await schemeRes.json();d.schemes.forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;schemeSelect.appendChild(o)});if(d.default)schemeSelect.value=d.default}
+}catch(e){console.warn('loadDropdowns',e)}
+restoreState();
+}
+loadDropdowns().then(()=>{
+tmplSelect.addEventListener('change',saveState);
+schemeSelect.addEventListener('change',saveState);
+});
+
+uploadZone.addEventListener('click',()=>fileInput.click());
+uploadZone.addEventListener('dragover',e=>{e.preventDefault();uploadZone.classList.add('dragover')});
+uploadZone.addEventListener('dragleave',()=>uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop',e=>{e.preventDefault();uploadZone.classList.remove('dragover');if(e.dataTransfer.files.length)handleFile(e.dataTransfer.files[0])});
+fileInput.addEventListener('change',()=>{if(fileInput.files.length)handleFile(fileInput.files[0])});
+
+async function handleFile(file){
+const isZip=file.name.match(/\.zip$/i);
+if(!isZip&&!file.name.endsWith('.json')){alert('仅支持 .zip 或 .json 文件');return}
+state.fileName=file.name;
+uploadHint.textContent=file.name;
+uploadZone.classList.add('has-file');
+let data,jsonText;
+if(isZip){
+try{
+const ab=await file.arrayBuffer();
+const zip=new JSZip();
+const z=await zip.loadAsync(ab);
+const entry=z.file('presentation.json');
+if(!entry){alert('ZIP 中未找到 presentation.json');return}
+jsonText=await entry.async('string');
+data=JSON.parse(jsonText);
+// Upload images in zip
+const uploadPromises=[];
+z.forEach((relPath, f)=>{
+if(relPath.startsWith('images/')&&!f.dir){
+uploadPromises.push((async()=>{
+const fd=new FormData();
+fd.append('file',new File([await f.async('blob')], relPath.replace('images/','')));
+await fetch('/image/store',{method:'POST',body:fd}).catch(()=>{});
+})());
+}
+});
+await Promise.all(uploadPromises);
+}catch(e){alert('ZIP 解析失败: '+e.message);return}
+}else{
+const text=await file.text();
+try{data=JSON.parse(text);jsonText=text}catch(e){alert('JSON 解析失败: '+e.message);return}
+}
+state.jsonData=data;
+state.jsonText=jsonText;
+state.totalSlides=data.slides?data.slides.length:0;
+state.currentSlide=0;
+state.slideWidth=data.slide_width||12192000;
+state.slideHeight=data.slide_height||6858000;
+if(data.template_name&&tmplSelect.querySelector(`option[value="${CSS.escape(data.template_name)}"]`))tmplSelect.value=data.template_name;
+if(data.color_scheme&&schemeSelect.querySelector(`option[value="${CSS.escape(data.color_scheme)}"]`))schemeSelect.value=data.color_scheme;
+downloadBtn.disabled=false;downloadJsonBtn.disabled=false;pageJsonBtn.disabled=false;
+updateSlideNav();
+await loadSlide(0);
+saveState();
+fetch('/sync',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(state.jsonData)}).catch(()=>{});
+}
+
+function getCurrentJson(){
+const data=state.jsonData?JSON.parse(JSON.stringify(state.jsonData)):{slides:[]};
+const t=tmplSelect.value,s=schemeSelect.value;
+if(t)data.template_name=t;else delete data.template_name;
+if(s)data.color_scheme=s;else delete data.color_scheme;
+return JSON.stringify(data,null,2);
+}
+
+downloadBtn.addEventListener('click',async()=>{
+downloadBtn.disabled=true;downloadBtn.textContent='生成中...';
+try{
+// Build ZIP with presentation.json + images
+const zip=new JSZip();
+zip.file('presentation.json', getCurrentJson());
+const seen=new Set();
+(state.jsonData.slides||[]).forEach(s=>(s.shapes||[]).forEach(sh=>{
+const img=sh.image_content;
+if(img&&img.path&&!seen.has(img.path)){
+seen.add(img.path);
+const p=fetch('/image/'+encodeURIComponent(img.path)).then(r=>{if(!r.ok)throw Error();return r.blob()}).catch(()=>new Blob());
+zip.file('images/'+img.path, p, {binary:true});
+}
+}));
+const zipBlob=await zip.generateAsync({type:'blob'});
+const fd=new FormData();fd.append('file',zipBlob,'slide.zip');
+const qs=new URLSearchParams();
+const t=tmplSelect.value;if(t)qs.set('template_name',t);
+const s=schemeSelect.value;if(s)qs.set('color_scheme',s);
+const res=await fetch(`/convert/json-to-pptx?${qs}`,{method:'POST',body:fd});
+if(!res.ok){const e=await res.text();alert('生成失败: '+e);return}
+const ab=await res.arrayBuffer();
+const url=URL.createObjectURL(new Blob([ab]));
+const name=(state.fileName||'slide').replace(/\.(json|zip)$/i,'')+'.pptx';
+const a=document.createElement('a');a.href=url;a.download=name;a.click();
+URL.revokeObjectURL(url);
+}catch(e){alert('下载失败: '+e.message)}
+finally{downloadBtn.disabled=false;downloadBtn.textContent='下载 PPTX'}
+});
+
+// ---- Download modified ZIP ----
+downloadJsonBtn.addEventListener('click',async()=>{
+const zip=new JSZip();
+zip.file('presentation.json', JSON.stringify(state.jsonData,null,2));
+// Collect image references from slides
+const seen=new Set();
+(state.jsonData.slides||[]).forEach(s=>(s.shapes||[]).forEach(sh=>{
+const img=sh.image_content;
+if(img&&img.path&&!seen.has(img.path)){
+seen.add(img.path);
+const p=fetch('/image/'+encodeURIComponent(img.path)).then(r=>{if(!r.ok)throw Error();return r.blob()}).catch(()=>new Blob());
+zip.file('images/'+img.path, p, {binary:true});
+}
+}));
+const blob=await zip.generateAsync({type:'blob'});
+const url=URL.createObjectURL(blob);
+const name2=(state.fileName||'slide').replace(/\.(json|zip)$/i,'')+'.zip';
+const a=document.createElement('a');a.href=url;a.download=name2;a.click();
+URL.revokeObjectURL(url);
+});
+
+// ---- Sync / Update with agent ----
+async function loadFromSync(){
+const res=await fetch('/sync');
+if(!res.ok){alert('加载同步文件失败');return}
+const data=await res.json();
+if(!data.content||!data.content.slides||!data.content.slides.length){
+alert('同步文件为空');
+return
+}
+state.jsonData=data.content;
+state.jsonText=JSON.stringify(data.content,null,2);
+state.totalSlides=data.content.slides.length;
+state.currentSlide=0;
+state.slideWidth=data.content.slide_width||12192000;
+state.slideHeight=data.content.slide_height||6858000;
+if(data.content.template_name&&tmplSelect.querySelector('option[value="'+CSS.escape(data.content.template_name)+'"]'))tmplSelect.value=data.content.template_name;
+if(data.content.color_scheme&&schemeSelect.querySelector('option[value="'+CSS.escape(data.content.color_scheme)+'"]'))schemeSelect.value=data.content.color_scheme;
+downloadBtn.disabled=false;pageJsonBtn.disabled=false;
+updateSlideNav();
+await loadSlide(0);
+saveState();
+}
+
+async function saveToSync(){
+const data=state.jsonData||{slides:[]};
+const res=await fetch('/sync',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+if(res.ok)alert('已保存到同步文件');
+else alert('保存同步文件失败');
+}
+
+const syncLoadBtn=$('sync-load-btn'), syncSaveBtn=$('sync-save-btn');
+syncLoadBtn.addEventListener('click',async()=>{
+syncLoadBtn.disabled=true;syncLoadBtn.textContent='载入中...';
+try{await loadFromSync();alert('已从同步文件载入')}
+catch(e){alert('同步失败: '+e.message)}
+finally{syncLoadBtn.disabled=false;syncLoadBtn.textContent='⬇ 同步'}
+});
+syncSaveBtn.addEventListener('click',async()=>{
+syncSaveBtn.disabled=true;syncSaveBtn.textContent='保存中...';
+try{await saveToSync()}
+catch(e){alert('更新失败: '+e.message)}
+finally{syncSaveBtn.disabled=false;syncSaveBtn.textContent='⬆ 更新'}
+});
+
+// ---- Upload ZIP button ----
+const jsonUploadInput=$('json-upload-input');
+$('upload-json-btn').addEventListener('click',()=>jsonUploadInput.click());
+jsonUploadInput.addEventListener('change',()=>{if(jsonUploadInput.files.length)handleFile(jsonUploadInput.files[0]);jsonUploadInput.value=''});
+
+// ---- Reset button ----
+$('reset-btn').addEventListener('click',()=>{
+if(!confirm('确认重置为初始状态？当前编辑内容将丢失。'))return;
+const resetData={
+title:'新演示',
+slide_width:12192000,
+slide_height:6858000,
+slides:[{id:0,layout_id:'',preset:'',background_color:null,shapes:[
+{type:'textbox',role:'title',left:500000,top:400000,width:11200000,height:600000,z_order:0,
+text_content:[{alignment:'center',runs:[{text:'标题',font_size:360000,bold:true,color:'#1A1A2E'}]}]}
+]}]
+};
+state.jsonData=resetData;
+state.jsonText=JSON.stringify(resetData,null,2);
+state.totalSlides=1;
+state.currentSlide=0;
+state.slideWidth=12192000;
+state.slideHeight=6858000;
+uploadHint.textContent='已重置';
+uploadZone.classList.add('has-file');
+downloadBtn.disabled=false;downloadJsonBtn.disabled=false;pageJsonBtn.disabled=false;
+updateSlideNav();
+loadSlide(0);
+saveState();
+});
+
+// ---- Image material modal ----
+const imageModal=$('image-modal');
+const imageGrid=$('image-grid');
+const imageUploadInput=$('image-upload-input');
+const imageUploadStatus=$('image-upload-status');
+
+async function loadImageGrid(){
+imageGrid.innerHTML='<span style="color:var(--text-secondary);font-size:12px">加载中...</span>';
+try{
+const res=await fetch('/image/list');
+if(!res.ok){imageGrid.innerHTML='<span style="color:red;font-size:12px">加载失败</span>';return}
+const data=await res.json();
+if(!data.images||!data.images.length){imageGrid.innerHTML='<span style="color:var(--text-secondary);font-size:12px">暂无图片素材</span>';return}
+imageGrid.innerHTML='';
+data.images.forEach(img=>{
+const card=document.createElement('div');card.className='image-card';
+card.innerHTML='\
+<div class="thumb"><img src="/image/'+encodeURIComponent(img.filename)+'?raw=1" alt="'+escHtml(img.filename)+'" loading="lazy" onerror="this.parentElement.textContent=\'❌\'"></div>\
+<div class="info"><div class="fname" title="'+escHtml(img.filename)+'">'+escHtml(img.filename)+'</div>'+(img.size>1024?Math.round(img.size/1024)+' KB':'<1 KB')+'</div>\
+<div class="actions">\
+<button class="btn btn-outline" data-path="'+escHtml(img.path)+'" data-filename="'+escHtml(img.filename)+'" data-copy>复制路径</button>\
+<button class="btn btn-outline" data-filename="'+escHtml(img.filename)+'" data-delete style="color:var(--danger)">删除</button>\
+</div>';
+card.querySelector('[data-copy]').addEventListener('click',function(e){
+e.stopPropagation();
+const path=this.dataset.path;
+navigator.clipboard.writeText(path).then(()=>{imageUploadStatus.textContent='已复制: '+path;setTimeout(()=>{imageUploadStatus.textContent=''},2000)}).catch(()=>{prompt('手动复制:',path)});
+});
+card.querySelector('[data-delete]').addEventListener('click',async function(e){
+e.stopPropagation();
+const fn=this.dataset.filename;
+if(!confirm('确认删除 '+fn+'？'))return;
+try{
+const r=await fetch('/image/'+encodeURIComponent(fn),{method:'DELETE'});
+if(r.ok){imageUploadStatus.textContent='已删除 '+fn;loadImageGrid()}else{const d=await r.text();alert('删除失败: '+d)}
+}catch(e){alert('删除失败: '+e.message)}
+});
+imageGrid.appendChild(card);
+});
+}catch(e){imageGrid.innerHTML='<span style="color:red;font-size:12px">加载失败: '+e.message+'</span>'}
+}
+
+$('open-image-btn').addEventListener('click',()=>{openModal('image-modal');loadImageGrid()});
+$('image-refresh-btn').addEventListener('click',loadImageGrid);
+$('image-upload-btn').addEventListener('click',()=>imageUploadInput.click());
+imageUploadInput.addEventListener('change',async function(){
+const files=imageUploadInput.files;
+if(!files.length)return;
+imageUploadStatus.textContent='上传中...';
+let ok=0,fail=0;
+for(const f of files){
+try{
+const fd=new FormData();fd.append('file',f);
+const res=await fetch('/image/store',{method:'POST',body:fd});
+if(res.ok)ok++;else fail++;
+}catch(e){fail++}
+}
+imageUploadStatus.textContent='上传完成: '+ok+' 成功'+(fail?', '+fail+' 失败':'');
+imageUploadInput.value='';
+loadImageGrid();
+});
+
+// ---- Serve raw image for thumbnails ----
+// (handled by StaticFiles mount on web/ and explicit route if needed)
+
+
+
+// ---- Load slide data via preview-info API ----
+async function loadSlide(idx){
+if(!state.jsonData||!state.jsonData.slides||!state.jsonData.slides.length){previewArea.innerHTML='<span class="placeholder">无幻灯片数据</span>';return}
+previewArea.innerHTML='<span class="placeholder">加载中...</span>';
+refreshBtn.disabled=true;
+try{
+const json=getCurrentJson();
+const blob=new Blob([json],{type:'application/json'});
+const fd=new FormData();fd.append('file',blob,'slide.json');
+const res=await fetch(`/render/preview-info?slide_index=${idx}`,{method:'POST',body:fd});
+if(!res.ok){previewArea.innerHTML='<span class="placeholder">加载失败</span>';return}
+const info=await res.json();
+state.slideWidth=info.slide_width||state.slideWidth;
+state.slideHeight=info.slide_height||state.slideHeight;
+state.shapes=info.shapes||[];
+renderHtmlSlide();
+buildShapeList();
+}catch(e){previewArea.innerHTML='<span class="placeholder">加载失败: '+e.message+'</span>'}
+finally{refreshBtn.disabled=false}
+}
+
+refreshBtn.addEventListener('click',()=>loadSlide(state.currentSlide));
+
+// ---- HTML slide renderer ----
+function renderHtmlSlide(){
+previewArea.innerHTML='';
+const container=document.createElement('div');container.id='slide-container';
+previewArea.appendChild(container);
+resizeSlideContainer(container);
+
+// Background color
+const bg=state.shapes.find(s=>s.type==='shape'&&s.auto_shape_type==='rectangle'&&s.left===0&&s.top===0&&s.width===state.slideWidth&&s.height===state.slideHeight);
+if(bg&&bg.background_color)container.style.background=bg.background_color;
+
+// Sort by z_order
+const sorted=[...state.shapes].sort((a,b)=>(a.z_order||0)-(b.z_order||0));
+
+const frag=document.createDocumentFragment();
+sorted.forEach((s,i)=>{
+const el=document.createElement('div');el.className='shape-el';el.dataset.index=i;
+const l=(s.left/state.slideWidth*100).toFixed(4);
+const t=(s.top/state.slideHeight*100).toFixed(4);
+const w=(s.width/state.slideWidth*100).toFixed(4);
+const h=(s.height/state.slideHeight*100).toFixed(4);
+el.style.left=l+'%';el.style.top=t+'%';el.style.width=w+'%';el.style.height=h+'%';
+el.title=(s.role||s.id||s.type)+(s.text_preview?' : '+s.text_preview:'');
+
+// Background
+if(s.background_color)el.style.background=s.background_color;
+
+// Border
+if(s.border_color){el.style.borderColor=s.border_color;el.style.borderStyle='solid';
+el.style.borderWidth=(s.border_width?Math.max(1,s.border_width/12700)+'pt':'1px')}
+
+// Rotation
+if(s.rotation)el.style.transform='rotate('+s.rotation+'deg)';
+
+// Content
+if(s.type==='table'&&s.table){
+const tb=document.createElement('div');tb.className='shape-table';
+s.table.cells.forEach(row=>{
+const tr=document.createElement('div');tr.className='tr';
+row.forEach(cell=>{
+const td=document.createElement('div');td.className='td';
+if(cell.colspan>1)td.style.flex=cell.colspan;
+if(cell.background_color){td.style.background=cell.background_color;td.classList.add('has-bg')}
+if(cell.bold)td.style.fontWeight='bold';
+td.textContent=cell.text;
+tr.appendChild(td);
+});
+tb.appendChild(tr);
+});
+el.appendChild(tb);
+}else if(s.type==='image'){
+                el.style.background='#e8e8e8';el.style.display='flex';el.style.alignItems='center';el.style.justifyContent='center';
+                el.style.color='#999';el.style.fontSize='10px';
+                if(s.image_content&&s.image_content.url){
+                    const img=document.createElement('img');
+                    img.src=s.image_content.url;
+                    img.style.maxWidth='100%';img.style.maxHeight='100%';img.style.objectFit='contain';
+                    img.onerror=function(){this.style.display='none';this.parentElement.textContent='🖼'};
+                    el.textContent='';el.appendChild(img);
+                }else{el.textContent='🖼'}
+            }else if(s.paragraphs&&s.paragraphs.length){
+s.paragraphs.forEach(p=>{
+const pdiv=document.createElement('div');
+pdiv.style.padding='2px 4px';
+if(p.alignment&&p.alignment!=='left')pdiv.style.textAlign=p.alignment;
+(p.runs||[]).forEach(r=>{
+const span=document.createElement('span');
+span.textContent=r.text;
+if(r.font_size){const pt=r.font_size/12700;span.style.fontSize=Math.max(4,Math.min(pt,96))+'pt'}
+if(r.font_name)span.style.fontFamily=r.font_name;
+if(r.bold)span.style.fontWeight='bold';
+if(r.italic)span.style.fontStyle='italic';
+if(r.underline)span.style.textDecoration='underline';
+if(r.color)span.style.color=r.color;
+pdiv.appendChild(span);
+});
+el.appendChild(pdiv);
+});
+}
+
+// Selection
+el.addEventListener('click',e=>{e.stopPropagation();handleSelect(e,i)});
+
+frag.appendChild(el);
+});
+container.appendChild(frag);
+
+if(state.selectedIds.length)highlightShapes(state.selectedIds);
+}
+
+function resizeSlideContainer(container){
+const pa=previewArea;
+const maxW=Math.max(200,pa.clientWidth-32);
+const maxH=Math.max(150,pa.clientHeight-32);
+const aspect=state.slideWidth/state.slideHeight;
+let w=maxW,h=w/aspect;
+if(h>maxH){h=maxH;w=h*aspect}
+container.style.width=Math.round(w)+'px';
+container.style.height=Math.round(h)+'px';
+}
+
+window.addEventListener('resize',()=>{
+const c=document.getElementById('slide-container');
+if(c)resizeSlideContainer(c);
+});
+
+// ---- Shape list (left panel) ----
+function emuToIn(v){return(v/914400).toFixed(2)+'"'}
+
+function buildShapeList(){
+shapeList.innerHTML='';
+state.shapes.forEach((s,i)=>{
+const card=document.createElement('div');card.className='shape-card';card.dataset.index=i;
+card.innerHTML='\
+<div class="shape-card-header">\
+<span class="shape-type-icon type-'+s.type+'">'+(typeIcon(s.type))+'</span>\
+<span class="shape-name">'+(s.role||s.id||s.type)+'</span>\
+<span class="shape-text-preview">'+(s.text_preview?'"'+escHtml(s.text_preview.substring(0,50))+(s.text_preview.length>50?'…':'')+'"':'')+'</span>\
+<span class="shape-pos">'+emuToIn(s.left)+'×'+emuToIn(s.top)+' '+emuToIn(s.width)+'×'+emuToIn(s.height)+'</span>\
+<span class="shape-expand">▶</span>\
+</div>\
+<div class="shape-card-details">'+buildDetails(s,i)+'</div>';
+const expand=card.querySelector('.shape-expand');
+expand.addEventListener('click',e=>{e.stopPropagation();card.classList.toggle('open');expand.classList.toggle('open')});
+card.addEventListener('click',e=>{if(e.target.closest('.shape-card-details'))return;handleSelect(e,i);scrollShapeIntoView(i)});
+card.addEventListener('dblclick',()=>{card.classList.toggle('open');expand.classList.toggle('open')});
+shapeList.appendChild(card);
+});
+if(state.selectedIds.length)highlightCards(state.selectedIds);
+}
+
+function typeIcon(t){const m={'textbox':'T','shape':'■','image':'🖼','table':'⊞'};return m[t]||'?'}
+
+function escHtml(t){const d=document.createElement('div');d.textContent=t||'';return d.innerHTML}
+
+function buildDetails(s, si){
+let h='';
+h+='<div class="detail-row"><span class="detail-label">位置</span>\
+<span class="detail-value">\
+L <input class="edit-pos" data-idx="'+si+'" data-field="left" value="'+s.left+'"> \
+T <input class="edit-pos" data-idx="'+si+'" data-field="top" value="'+s.top+'"> \
+W <input class="edit-pos" data-idx="'+si+'" data-field="width" value="'+s.width+'"> \
+H <input class="edit-pos" data-idx="'+si+'" data-field="height" value="'+s.height+'">\
+</span></div>';
+h+='<div class="detail-row"><span class="detail-label">填充</span>\
+<span class="detail-value">\
+<input type="color" class="edit-picker" data-idx="'+si+'" data-field="background_color" value="'+(s.background_color||'#ffffff')+'">\
+<input class="edit-hex" data-idx="'+si+'" data-field="background_color" value="'+(s.background_color||'')+'" placeholder="无">\
+</span></div>';
+if(s.border_color){
+h+='<div class="detail-row"><span class="detail-label">边框</span><span class="detail-value"><span class="color-swatch" style="background:'+s.border_color+'"></span>'+s.border_color+(s.border_width?' '+(s.border_width/12700).toFixed(1)+'pt':'')+'</span></div>';
+}
+if(s.paragraphs&&s.paragraphs.length){
+h+='<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">文本</span>';
+s.paragraphs.forEach((p,pi)=>{
+(p.runs||[]).forEach((r,ri)=>{
+h+='<div class="para-block" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">\
+<input class="edit-text" data-idx="'+si+'" data-pi="'+pi+'" data-ri="'+ri+'" value="'+escHtml(r.text||'')+'" style="flex:1;min-width:60px">\
+<input class="edit-pt" data-idx="'+si+'" data-pi="'+pi+'" data-ri="'+ri+'" value="'+(r.font_size?Math.round(r.font_size/12700):12)+'" title="pt">\
+<label style="font-size:11px"><input type="checkbox" class="edit-bold" data-idx="'+si+'" data-pi="'+pi+'" data-ri="'+ri+'"'+(r.bold?' checked':'')+'>B</label>\
+<label style="font-size:11px"><input type="checkbox" class="edit-italic" data-idx="'+si+'" data-pi="'+pi+'" data-ri="'+ri+'"'+(r.italic?' checked':'')+'>I</label>\
+</div>';
+});
+});
+h+='</div>';
+}
+if(s.type==='table'&&s.table)h+='<div class="detail-row"><span class="detail-label">表格</span><span class="detail-value">'+s.table.rows+'×'+s.table.cols+'</span></div>';
+h+='<button class="btn btn-outline shape-json-toggle" data-idx="'+si+'">JSON</button>';
+return h;
+}
+
+// ---- Modal helpers ----
+function openModal(id){document.getElementById(id).classList.add('open')}
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+function closeOnBg(e,id){if(e.target===e.currentTarget)closeModal(id)}
+document.querySelectorAll('.modal-overlay').forEach(m=>{
+const closeBtn=m.querySelector('.modal-close');
+if(closeBtn)closeBtn.addEventListener('click',()=>closeModal(m.id));
+m.addEventListener('click',e=>closeOnBg(e,m.id));
+});
+
+// Shape JSON editor modal
+let _jsonEditIdx=-1;
+const jsonModal=$('json-modal'), jsonTextarea=$('json-textarea');
+const jsonApply=$('json-modal-apply');
+
+shapeList.addEventListener('click',function(e){
+const btn=e.target.closest('.shape-json-toggle');
+if(!btn)return;
+const si=parseInt(btn.dataset.idx);if(isNaN(si))return;
+const slide=state.jsonData&&state.jsonData.slides[state.currentSlide];
+if(!slide||!slide.shapes[si])return;
+_jsonEditIdx=si;
+jsonTextarea.value=JSON.stringify(slide.shapes[si],null,2);
+openModal('json-modal');
+jsonTextarea.focus();
+});
+
+function closeJsonModal(){closeModal('json-modal');_jsonEditIdx=-1}
+jsonApply.addEventListener('click',()=>{
+const si=_jsonEditIdx; if(si<0)return;
+const slide=state.jsonData&&state.jsonData.slides[state.currentSlide];
+if(!slide||!slide.shapes[si])return;
+try{
+slide.shapes[si]=JSON.parse(jsonTextarea.value);
+state.jsonText=JSON.stringify(state.jsonData,null,2);
+saveState();
+closeJsonModal();
+fetch('/sync',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(state.jsonData)}).catch(()=>{});
+clearTimeout(state._editTimer);
+state._editTimer=setTimeout(()=>loadSlide(state.currentSlide),400);
+}catch(e){alert('JSON 格式错误: '+e.message)}
+});
+document.getElementById('json-modal-cancel').addEventListener('click',closeJsonModal);
+
+// Convert & Config modals
+document.getElementById('open-convert-btn').addEventListener('click',()=>openModal('convert-modal'));
+document.getElementById('open-config-btn').addEventListener('click',()=>openModal('config-modal'));
+
+// ---- Page JSON modal ----
+const pageJsonModal=$('page-json-modal');
+const pageJsonTextarea=$('page-json-textarea');
+$('page-json-btn').addEventListener('click',()=>{
+const slide=state.jsonData&&state.jsonData.slides[state.currentSlide];
+if(!slide){alert('没有当前页数据');return}
+const cleanSlide=JSON.parse(JSON.stringify(slide));
+delete cleanSlide.shapes;
+pageJsonTextarea.value=JSON.stringify({slide_width:state.slideWidth,slide_height:state.slideHeight,slide:cleanSlide,shapes:JSON.parse(JSON.stringify(slide.shapes||[]))},null,2);
+openModal('page-json-modal');
+pageJsonTextarea.focus();
+});
+$('page-json-apply').addEventListener('click',()=>{
+try{
+const parsed=JSON.parse(pageJsonTextarea.value);
+const slide=parsed.slide||{};
+const shapes=parsed.shapes||[];
+if(!state.jsonData)state.jsonData={slides:[]};
+if(!state.jsonData.slides[state.currentSlide])state.jsonData.slides[state.currentSlide]={};
+Object.assign(state.jsonData.slides[state.currentSlide],slide);
+state.jsonData.slides[state.currentSlide].shapes=shapes;
+state.jsonText=JSON.stringify(state.jsonData,null,2);
+saveState();
+closeModal('page-json-modal');
+fetch('/sync',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(state.jsonData)}).catch(()=>{});
+clearTimeout(state._editTimer);
+state._editTimer=setTimeout(()=>loadSlide(state.currentSlide),400);
+}catch(e){alert('JSON 格式错误: '+e.message)}
+});
+$('page-json-cancel').addEventListener('click',()=>closeModal('page-json-modal'));
+document.getElementById('page-json-modal-close').addEventListener('click',()=>closeModal('page-json-modal'));
+
+// Edit handler — event delegation on shape-list
+shapeList.addEventListener('change', function(e){
+const el=e.target; const si=parseInt(el.dataset.idx);
+if(isNaN(si))return;
+const slide=state.jsonData.slides[state.currentSlide];
+if(!slide||!slide.shapes[si])return;
+const shape=slide.shapes[si];
+const p=el.classList;
+if(p.contains('edit-pos')){shape[el.dataset.field]=parseFloat(el.value)||0}
+else if(p.contains('edit-picker')||p.contains('edit-hex')){
+const val=el.value||null;
+if(p.contains('edit-picker')){shape.background_color=val;const hexIn=el.parentNode.querySelector('.edit-hex');if(hexIn)hexIn.value=val}
+else{shape.background_color=val;const pk=el.parentNode.querySelector('.edit-picker');if(pk)pk.value=val||'#ffffff'}
+}
+else if(p.contains('edit-text')){const pi=parseInt(el.dataset.pi),ri=parseInt(el.dataset.ri);if(shape.text_content&&shape.text_content[pi]&&shape.text_content[pi].runs[ri])shape.text_content[pi].runs[ri].text=el.value}
+else if(p.contains('edit-pt')){const pi=parseInt(el.dataset.pi),ri=parseInt(el.dataset.ri);if(shape.text_content&&shape.text_content[pi]&&shape.text_content[pi].runs[ri])shape.text_content[pi].runs[ri].font_size=(parseFloat(el.value)||12)*12700}
+else if(p.contains('edit-bold')){const pi=parseInt(el.dataset.pi),ri=parseInt(el.dataset.ri);if(shape.text_content&&shape.text_content[pi]&&shape.text_content[pi].runs[ri])shape.text_content[pi].runs[ri].bold=el.checked}
+else if(p.contains('edit-italic')){const pi=parseInt(el.dataset.pi),ri=parseInt(el.dataset.ri);if(shape.text_content&&shape.text_content[pi]&&shape.text_content[pi].runs[ri])shape.text_content[pi].runs[ri].italic=el.checked}
+state.jsonText=JSON.stringify(state.jsonData,null,2);
+saveState();
+// Auto-persist to sync file
+clearTimeout(state._syncTimer);
+state._syncTimer=setTimeout(()=>{
+fetch('/sync',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(state.jsonData)}).catch(()=>{});
+},800);
+// Debounced preview refresh
+clearTimeout(state._editTimer);
+state._editTimer=setTimeout(()=>loadSlide(state.currentSlide),400);
+});
+
+function highlightCards(indices){
+document.querySelectorAll('.shape-card').forEach((el,i)=>el.classList.toggle('selected',indices.includes(i)));
+}
+
+function highlightShapes(indices){
+document.querySelectorAll('.shape-el').forEach((el,i)=>el.classList.toggle('selected',indices.includes(i)));
+}
+
+function scrollShapeIntoView(index){
+const el=document.querySelectorAll('.shape-card')[index];
+if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+// ---- Element selection: Ctrl+click multi-select ----
+function handleSelect(e, index){
+if(e.ctrlKey||e.metaKey){
+// Toggle this shape in selection
+const ids=state.selectedIds.slice();
+const pos=ids.indexOf(index);
+if(pos>=0)ids.splice(pos,1);
+else ids.push(index);
+selectShapes(ids);
+}else{
+// Single select (deselect others if clicking a different shape)
+selectShapes(state.selectedIds.length===1&&state.selectedIds[0]===index?[]:[index]);
+}
+}
+
+// Click empty area to deselect
+document.addEventListener('click',e=>{
+if(!e.target.closest('.shape-el')&&!e.target.closest('.shape-card'))clearSelection();
+});
+
+function selectShapes(indices){
+state.selectedIds=indices;
+highlightShapes(indices);
+highlightCards(indices);
+const detail=indices.map(i=>{
+const s=state.shapes[i];
+return (s.role||s.id||'?')+(s.text_preview?' "'+s.text_preview+'"':'');
+}).join('; ')||'未选中';
+selInfo.textContent=detail||'未选中';
+if(indices.length){
+fetch('/render/select-element',{
+method:'POST',headers:{'Content-Type':'application/json'},
+body:JSON.stringify({slide:state.currentSlide,selected:indices.map(i=>({index:i,role:state.shapes[i].role,id:state.shapes[i].id,type:state.shapes[i].type})),count:indices.length})
+}).catch(()=>{});
+}
+}
+
+function clearSelection(){selectShapes([])}
+
+// ---- Slide navigation ----
+function updateSlideNav(){
+const t=state.totalSlides;
+slideInd.textContent=t?`${state.currentSlide+1} / ${t}`:'0 / 0';
+prevBtn.disabled=state.currentSlide<=0;
+nextBtn.disabled=state.currentSlide>=t-1;
+}
+prevBtn.addEventListener('click',()=>{if(state.currentSlide>0){state.currentSlide--;updateSlideNav();loadSlide(state.currentSlide);saveState()}});
+nextBtn.addEventListener('click',()=>{if(state.currentSlide<state.totalSlides-1){state.currentSlide++;updateSlideNav();loadSlide(state.currentSlide);saveState()}});
+window.addEventListener('beforeunload',saveState);
+</script>
+</body>
+</html>

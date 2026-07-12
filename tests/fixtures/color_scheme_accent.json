@@ -1,0 +1,73 @@
+{
+  "title": "Scheme Accent Colors Test",
+  "slide_width": 12192000,
+  "slide_height": 6858000,
+  "color_scheme": "经典黑",
+  "slides": [
+    {
+      "id": 0,
+      "shapes": [
+        {
+          "id": "0-accent1",
+          "type": "shape",
+          "auto_shape_type": "rectangle",
+          "left": 914400,
+          "top": 914400,
+          "width": 1371600,
+          "height": 1371600,
+          "background_color": "1E65A6"
+        },
+        {
+          "id": "0-accent2",
+          "type": "shape",
+          "auto_shape_type": "rectangle",
+          "left": 2743200,
+          "top": 914400,
+          "width": 1371600,
+          "height": 1371600,
+          "background_color": "DD6D21"
+        },
+        {
+          "id": "0-accent3",
+          "type": "shape",
+          "auto_shape_type": "rectangle",
+          "left": 4572000,
+          "top": 914400,
+          "width": 1371600,
+          "height": 1371600,
+          "background_color": "959595"
+        },
+        {
+          "id": "0-accent4",
+          "type": "shape",
+          "auto_shape_type": "rectangle",
+          "left": 6400800,
+          "top": 914400,
+          "width": 1371600,
+          "height": 1371600,
+          "background_color": "EFB000"
+        },
+        {
+          "id": "0-accent5",
+          "type": "shape",
+          "auto_shape_type": "rectangle",
+          "left": 8229600,
+          "top": 914400,
+          "width": 1371600,
+          "height": 1371600,
+          "background_color": "4B8BC5"
+        },
+        {
+          "id": "0-accent6",
+          "type": "shape",
+          "auto_shape_type": "rectangle",
+          "left": 10058400,
+          "top": 914400,
+          "width": 1371600,
+          "height": 1371600,
+          "background_color": "609D37"
+        }
+      ]
+    }
+  ]
+}

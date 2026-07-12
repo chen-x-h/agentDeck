@@ -1,0 +1,16 @@
+FROM python:3.12-slim
+
+RUN pip install uv --quiet
+
+WORKDIR /app
+
+COPY ppt_render_engine/pyproject.toml ppt_render_engine/
+RUN cd ppt_render_engine && uv sync --no-dev
+
+COPY ppt_render_engine/src/ ppt_render_engine/src/
+COPY ppt_render_engine/run.py ppt_render_engine/
+
+EXPOSE 8000
+
+WORKDIR /app/ppt_render_engine
+CMD ["uv", "run", "python", "run.py"]

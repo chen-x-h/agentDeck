@@ -1,0 +1,41 @@
+{
+  "title": "Merged Cells Test",
+  "slide_width": 12192000,
+  "slide_height": 6858000,
+  "slides": [
+    {
+      "id": 0,
+      "shapes": [
+        {
+          "id": "0-table",
+          "type": "table",
+          "left": 914400,
+          "top": 914400,
+          "width": 9144000,
+          "height": 4572000,
+          "table_content": {
+            "rows": 3,
+            "cols": 3,
+            "cells": [
+              [
+                {"text": "Merged Header", "colspan": 3, "bold": true, "background_color": "2E75B6"},
+                {"text": "", "colspan": 0, "rowspan": 0},
+                {"text": "", "colspan": 0, "rowspan": 0}
+              ],
+              [
+                {"text": "Left", "background_color": "F2F2F2"},
+                {"text": "Center", "alignment": "center"},
+                {"text": "Right", "alignment": "right", "background_color": "F2F2F2"}
+              ],
+              [
+                {"text": "Row3 Col1"},
+                {"text": "Row3 Col2"},
+                {"text": "Row3 Col3", "bold": true}
+              ]
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

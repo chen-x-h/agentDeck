@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>PPTX ↔ JSON 转换</title>
+<style>
+:root{--bg:#f0f2f5;--surface:#fff;--primary:#1a73e8;--border:#d0d5dd;--text:#1d1d1f;--text-secondary:#6b7280;--radius:8px;--shadow:0 1px 3px rgba(0,0,0,.08)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;width:100%;max-width:800px}
+header h1{font-size:18px;font-weight:600}
+nav{display:flex;gap:8px}
+nav .tab{padding:4px 14px;border-radius:4px;cursor:pointer;font-size:13px;color:var(--text-secondary);background:var(--bg);border:none;transition:all .2s}
+nav .tab.active{background:var(--primary);color:#fff}
+.card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:40px;margin-top:40px;width:100%;max-width:500px;text-align:center}
+.upload-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:48px 24px;cursor:pointer;transition:border-color .2s;margin-bottom:20px}
+.upload-zone:hover,.upload-zone.dragover{border-color:var(--primary)}
+.upload-zone.has-file{border-color:#34a853;border-style:solid}
+.upload-zone .icon{font-size:48px;margin-bottom:12px}
+.upload-zone .hint{font-size:14px;color:var(--text-secondary)}
+.btn{padding:10px 24px;border:none;border-radius:6px;font-size:14px;font-weight:500;cursor:pointer;transition:background .2s}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:#1557b0}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-secondary{background:var(--bg);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{background:#e5e7eb}
+.section-title{font-size:14px;font-weight:600;margin-bottom:16px;text-align:left}
+#result{margin-top:20px;font-size:13px;color:var(--text-secondary);word-break:break-all}
+</style>
+</head>
+<body>
+<header>
+<h1>PPTX ↔ JSON 转换</h1>
+<nav>
+<button class="tab active" data-tab="pptx2json">PPTX → ZIP</button>
+<button class="tab" data-tab="json2pptx">JSON/ZIP → PPTX</button>
+</nav>
+</header>
+<div id="pptx2json" class="card tab-content">
+<div class="upload-zone" id="upload-pptx">
+<div class="icon">📄</div>
+<div class="hint" id="upload-pptx-hint">拖拽 .pptx 文件到此处，或点击选择</div>
+<input type="file" id="file-pptx" accept=".pptx,.PPTX" style="display:none">
+</div>
+<button class="btn btn-primary" id="convert-dl-btn" disabled>转换并下载 ZIP</button>
+<div id="result-pptx2json"></div>
+</div>
+<div id="json2pptx" class="card tab-content" style="display:none">
+<div class="upload-zone" id="upload-json">
+<div class="icon">📂</div>
+<div class="hint" id="upload-json-hint">拖拽 .json 或 .zip 文件到此处，或点击选择</div>
+<input type="file" id="file-json" accept=".json,.JSON,.zip,.ZIP" style="display:none">
+</div>
+<button class="btn btn-primary" id="convert-up-btn" disabled>上传并下载 PPTX</button>
+<div id="result-json2pptx"></div>
+</div>
+<script>
+const tabs=document.querySelectorAll('.tab');
+tabs.forEach(t=>t.addEventListener('click',()=>{
+tabs.forEach(x=>x.classList.remove('active'));
+t.classList.add('active');
+document.querySelectorAll('.tab-content').forEach(x=>x.style.display='none');
+document.getElementById(t.dataset.tab).style.display='';
+}));
+
+// PPTX → ZIP
+const uploadPptx=document.getElementById('upload-pptx');
+const filePptx=document.getElementById('file-pptx');
+const hintPptx=document.getElementById('upload-pptx-hint');
+const dlBtn=document.getElementById('convert-dl-btn');
+const resPptx=document.getElementById('result-pptx2json');
+let selectedPptx=null;
+
+uploadPptx.addEventListener('click',()=>filePptx.click());
+uploadPptx.addEventListener('dragover',e=>{e.preventDefault();uploadPptx.classList.add('dragover')});
+uploadPptx.addEventListener('dragleave',()=>uploadPptx.classList.remove('dragover'));
+uploadPptx.addEventListener('drop',e=>{e.preventDefault();uploadPptx.classList.remove('dragover');if(e.dataTransfer.files.length)selectPptx(e.dataTransfer.files[0])});
+filePptx.addEventListener('change',()=>{if(filePptx.files.length)selectPptx(filePptx.files[0])});
+
+function selectPptx(f){
+if(!f.name.endsWith('.pptx')&&!f.name.endsWith('.PPTX')){alert('仅支持 .pptx 文件');return}
+selectedPptx=f;hintPptx.textContent=f.name;uploadPptx.classList.add('has-file');dlBtn.disabled=false;resPptx.textContent='';
+}
+
+dlBtn.addEventListener('click',async()=>{
+if(!selectedPptx)return;
+dlBtn.disabled=true;dlBtn.textContent='转换中...';resPptx.textContent='';
+try{
+const fd=new FormData();fd.append('file',selectedPptx);
+const res=await fetch('/convert/pptx-to-json',{method:'POST',body:fd});
+if(!res.ok){const txt=await res.text();resPptx.textContent='转换失败: '+txt;return}
+const blob=await res.blob();
+const url=URL.createObjectURL(blob);
+const a=document.createElement('a');a.href=url;a.download=selectedPptx.name.replace('.pptx','.zip').replace('.PPTX','.zip');a.click();
+URL.revokeObjectURL(url);
+resPptx.textContent='✓ 转换成功，ZIP 包含 presentation.json + images/';
+}catch(e){resPptx.textContent='转换失败: '+e.message}
+finally{dlBtn.disabled=false;dlBtn.textContent='转换并下载 ZIP'}
+});
+
+// JSON/ZIP → PPTX
+const uploadJson=document.getElementById('upload-json');
+const fileJson=document.getElementById('file-json');
+const hintJson=document.getElementById('upload-json-hint');
+const upBtn=document.getElementById('convert-up-btn');
+const resJson=document.getElementById('result-json2pptx');
+let selectedJson=null;
+
+uploadJson.addEventListener('click',()=>fileJson.click());
+uploadJson.addEventListener('dragover',e=>{e.preventDefault();uploadJson.classList.add('dragover')});
+uploadJson.addEventListener('dragleave',()=>uploadJson.classList.remove('dragover'));
+uploadJson.addEventListener('drop',e=>{e.preventDefault();uploadJson.classList.remove('dragover');if(e.dataTransfer.files.length)selectJsonFile(e.dataTransfer.files[0])});
+fileJson.addEventListener('change',()=>{if(fileJson.files.length)selectJsonFile(fileJson.files[0])});
+
+function selectJsonFile(f){
+const lower=f.name.toLowerCase();
+if(!lower.endsWith('.json')&&!lower.endsWith('.zip')){alert('仅支持 .json 或 .zip 文件');return}
+selectedJson=f;hintJson.textContent=f.name;uploadJson.classList.add('has-file');upBtn.disabled=false;resJson.textContent='';
+}
+
+upBtn.addEventListener('click',async()=>{
+if(!selectedJson)return;
+upBtn.disabled=true;upBtn.textContent='生成中...';resJson.textContent='';
+try{
+const fd=new FormData();fd.append('file',selectedJson);
+const res=await fetch('/convert/json-to-pptx',{method:'POST',body:fd});
+if(!res.ok){const txt=await res.text();resJson.textContent='生成失败: '+txt;return}
+const blob=await res.blob();
+const url=URL.createObjectURL(blob);
+const a=document.createElement('a');a.href=url;a.download=selectedJson.name.replace('.json','.pptx').replace('.JSON','.pptx').replace('.zip','.pptx').replace('.ZIP','.pptx');a.click();
+URL.revokeObjectURL(url);
+resJson.textContent='✓ 生成成功，已开始下载 PPTX';
+}catch(e){resJson.textContent='生成失败: '+e.message}
+finally{upBtn.disabled=false;upBtn.textContent='上传并下载 PPTX'}
+});
+</script>
+</body>
+</html>

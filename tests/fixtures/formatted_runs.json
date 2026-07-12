@@ -1,0 +1,37 @@
+{
+  "title": "Formatted Runs Test",
+  "slide_width": 12192000,
+  "slide_height": 6858000,
+  "slides": [
+    {
+      "id": 0,
+      "shapes": [
+        {
+          "id": "0-text",
+          "type": "textbox",
+          "left": 914400,
+          "top": 914400,
+          "width": 9144000,
+          "height": 914400,
+          "text_content": [
+            {
+              "runs": [
+                {"text": "Normal ", "font_size": 254000},
+                {"text": "Bold", "font_size": 254000, "bold": true},
+                {"text": " ", "font_size": 254000},
+                {"text": "Italic", "font_size": 254000, "italic": true},
+                {"text": " ", "font_size": 254000},
+                {"text": "Underline", "font_size": 254000, "underline": true},
+                {"text": " ", "font_size": 254000},
+                {"text": "Custom", "font_size": 254000, "color": "AABBCC"},
+                {"text": " ", "font_size": 254000},
+                {"text": "Big", "font_size": 558800}
+              ],
+              "alignment": "left"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

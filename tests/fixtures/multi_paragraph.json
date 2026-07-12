@@ -1,0 +1,37 @@
+{
+  "title": "Multi Paragraph Test",
+  "slide_width": 12192000,
+  "slide_height": 6858000,
+  "slides": [
+    {
+      "id": 0,
+      "shapes": [
+        {
+          "id": "0-content",
+          "type": "textbox",
+          "left": 914400,
+          "top": 914400,
+          "width": 9144000,
+          "height": 4572000,
+          "text_content": [
+            {
+              "runs": [{"text": "Paragraph 1 - First line", "font_size": 228600}],
+              "alignment": "left",
+              "space_after": 1270
+            },
+            {
+              "runs": [{"text": "Paragraph 2 - Second line", "font_size": 228600}],
+              "alignment": "center",
+              "space_before": 635,
+              "space_after": 1270
+            },
+            {
+              "runs": [{"text": "Paragraph 3 - Right aligned", "font_size": 228600}],
+              "alignment": "right"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+server:
+  host: "0.0.0.0"
+  port: 8000
+  reload: false
+
+engine:
+  preview_dpi: 150
+  preview_format: "png"
+  temp_dir: "/data/temp"
+
+image:
+  storage_dir: "/data/images"
+
+template:
+  storage_dir: "/data/templates"
+
+color_scheme:
+  storage_path: "/data/color_schemes/color_schemes.json"
+
+sync:
+  json_path: "/data/sync/presentation.json"
+
+render_engine:
+  url: "http://engine:8000"
+
+mcp_server:
+  host: "0.0.0.0"
+  port: 8010

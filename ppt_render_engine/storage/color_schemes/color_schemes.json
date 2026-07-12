@@ -1,0 +1,175 @@
+{
+  "default": "经典黑",
+  "schemes": [
+    {
+      "name": "经典黑",
+      "colors": {
+        "dk1": "000000",
+        "lt1": "FFFFFF",
+        "dk2": "404040",
+        "lt2": "F2F2F2",
+        "accent1": "2E75B6",
+        "accent2": "ED7D31",
+        "accent3": "A5A5A5",
+        "accent4": "FFC000",
+        "accent5": "5B9BD5",
+        "accent6": "70AD47",
+        "hlink": "0563C1",
+        "folHlink": "954F72"
+      }
+    },
+    {
+      "name": "深邃蓝",
+      "colors": {
+        "dk1": "1B2A4A",
+        "lt1": "FFFFFF",
+        "dk2": "2D4A7A",
+        "lt2": "E8F0FE",
+        "accent1": "4472C4",
+        "accent2": "5E9CE6",
+        "accent3": "A3C4E8",
+        "accent4": "FFD966",
+        "accent5": "70AD47",
+        "accent6": "9B59B6",
+        "hlink": "1A73E8",
+        "folHlink": "7B1FA2"
+      }
+    },
+    {
+      "name": "森林绿",
+      "colors": {
+        "dk1": "1A3C34",
+        "lt1": "FFFFFF",
+        "dk2": "2D6A4F",
+        "lt2": "E8F5E9",
+        "accent1": "2E7D32",
+        "accent2": "43A047",
+        "accent3": "81C784",
+        "accent4": "FFB74D",
+        "accent5": "A1887F",
+        "accent6": "4DB6AC",
+        "hlink": "1B5E20",
+        "folHlink": "33691E"
+      }
+    },
+    {
+      "name": "火焰红",
+      "colors": {
+        "dk1": "3E1F1A",
+        "lt1": "FFF8F0",
+        "dk2": "8B3A2A",
+        "lt2": "FCE4D6",
+        "accent1": "C0392B",
+        "accent2": "E67E22",
+        "accent3": "F39C12",
+        "accent4": "D35400",
+        "accent5": "A93226",
+        "accent6": "E74C3C",
+        "hlink": "922B21",
+        "folHlink": "641E16"
+      }
+    },
+    {
+      "name": "科技紫",
+      "colors": {
+        "dk1": "1A1A2E",
+        "lt1": "F8F9FA",
+        "dk2": "3D3B8E",
+        "lt2": "E8E0F0",
+        "accent1": "6C63FF",
+        "accent2": "9B59B6",
+        "accent3": "8E44AD",
+        "accent4": "00D2D3",
+        "accent5": "54A0FF",
+        "accent6": "FF6B6B",
+        "hlink": "4A00E0",
+        "folHlink": "8E44AD"
+      }
+    },
+    {
+      "name": "暖阳橙",
+      "colors": {
+        "dk1": "2C1810",
+        "lt1": "FFFBF0",
+        "dk2": "6B4226",
+        "lt2": "FEF0DB",
+        "accent1": "E65100",
+        "accent2": "FF8F00",
+        "accent3": "FFB300",
+        "accent4": "FF6F00",
+        "accent5": "BF360C",
+        "accent6": "558B2F",
+        "hlink": "E65100",
+        "folHlink": "BF360C"
+      }
+    },
+    {
+      "name": "冰川蓝",
+      "colors": {
+        "dk1": "0D2137",
+        "lt1": "FFFFFF",
+        "dk2": "1A5276",
+        "lt2": "D6EAF8",
+        "accent1": "2980B9",
+        "accent2": "3498DB",
+        "accent3": "85C1E9",
+        "accent4": "A3E4D7",
+        "accent5": "5DADE2",
+        "accent6": "48C9B0",
+        "hlink": "1B4F72",
+        "folHlink": "154360"
+      }
+    },
+    {
+      "name": "樱花粉",
+      "colors": {
+        "dk1": "2D1B2E",
+        "lt1": "FFF5F7",
+        "dk2": "6B3F5E",
+        "lt2": "FDE8EE",
+        "accent1": "E91E63",
+        "accent2": "F48FB1",
+        "accent3": "F8BBD0",
+        "accent4": "CE93D8",
+        "accent5": "AB47BC",
+        "accent6": "FF80AB",
+        "hlink": "880E4F",
+        "folHlink": "AD1457"
+      }
+    },
+    {
+      "name": "极简灰",
+      "colors": {
+        "dk1": "212121",
+        "lt1": "FFFFFF",
+        "dk2": "616161",
+        "lt2": "F5F5F5",
+        "accent1": "607D8B",
+        "accent2": "90A4AE",
+        "accent3": "B0BEC5",
+        "accent4": "78909C",
+        "accent5": "546E7A",
+        "accent6": "BDBDBD",
+        "hlink": "37474F",
+        "folHlink": "455A64"
+      }
+    },
+    {
+      "name": "国风红",
+      "colors": {
+        "dk1": "2B100F",
+        "lt1": "FEF9F0",
+        "dk2": "8B1A1A",
+        "lt2": "F5E6D3",
+        "accent1": "C23B22",
+        "accent2": "D4A574",
+        "accent3": "8B4513",
+        "accent4": "E8C39E",
+        "accent5": "5C4033",
+        "accent6": "A0522D",
+        "hlink": "8B0000",
+        "folHlink": "5C0000"
+      }
+    }
+  ]
+}

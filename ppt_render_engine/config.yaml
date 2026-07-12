@@ -1,0 +1,21 @@
+server:
+  host: "127.0.0.1"
+  port: 8000
+  reload: false
+
+engine:
+  preview_dpi: 150
+  preview_format: "png"
+  temp_dir: "./temp"
+
+image:
+  storage_dir: "./sync/images"
+
+template:
+  storage_dir: "./storage/templates"
+
+color_scheme:
+  storage_path: "./storage/color_schemes/color_schemes.json"
+
+sync:
+  json_path: "./sync/presentation.json"

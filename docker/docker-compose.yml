@@ -1,0 +1,37 @@
+services:
+  engine:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.engine
+    hostname: engine
+    ports:
+      - "8000:8000"
+    volumes:
+      - ppt_data:/data
+      - ./config.docker.yaml:/app/ppt_render_engine/config.yaml
+      - ../storage/templates:/data/templates
+      - ../storage/color_schemes:/data/color_schemes
+    healthcheck:
+      test: ["CMD", "python", "-c", "import http.client; c=http.client.HTTPConnection('localhost',8000); c.request('GET','/health'); exit(0 if c.getresponse().status==200 else 1)"]
+      interval: 5s
+      retries: 10
+      start_period: 15s
+
+  mcp:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.mcp
+    hostname: mcp
+    ports:
+      - "8010:8010"
+    volumes:
+      - ppt_data:/data
+      - ./config.docker.yaml:/app/config.yaml
+      - ../storage/templates:/data/templates
+      - ../storage/color_schemes:/data/color_schemes
+    depends_on:
+      engine:
+        condition: service_healthy
+
+volumes:
+  ppt_data:

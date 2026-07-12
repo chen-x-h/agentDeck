@@ -1,0 +1,48 @@
+{
+  "title": "Template Placeholder Test",
+  "slide_width": 12192000,
+  "slide_height": 6858000,
+  "template_name": "标准1",
+  "slides": [
+    {
+      "id": 0,
+      "layout_id": "blank",
+      "shapes": [
+        {
+          "id": "0-title",
+          "type": "textbox",
+          "left": 0,
+          "top": 0,
+          "width": 12192000,
+          "height": 6858000,
+          "text_content": [
+            {
+              "runs": [{"text": "Custom blank slide content", "font_size": 355600}],
+              "alignment": "center"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "layout_id": "title_slide",
+      "shapes": [
+        {
+          "id": "1-title",
+          "type": "textbox",
+          "left": 0,
+          "top": 0,
+          "width": 12192000,
+          "height": 6858000,
+          "text_content": [
+            {
+              "runs": [{"text": "Template Title Slide", "font_size": 508000}],
+              "alignment": "center"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

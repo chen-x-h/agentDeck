@@ -1,0 +1,25 @@
+{
+  "title": "Image URL Test",
+  "slide_width": 12192000,
+  "slide_height": 6858000,
+  "slides": [
+    {
+      "id": 0,
+      "shapes": [
+        {
+          "id": "0-image",
+          "type": "image",
+          "left": 914400,
+          "top": 914400,
+          "width": 4572000,
+          "height": 3429000,
+          "image_content": {
+            "url": "https://via.placeholder.com/800x600.png",
+            "width": 800,
+            "height": 600
+          }
+        }
+      ]
+    }
+  ]
+}

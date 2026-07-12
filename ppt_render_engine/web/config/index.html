@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>配置 - PPT Render Engine</title>
+<style>
+:root{--bg:#f0f2f5;--surface:#fff;--primary:#1a73e8;--border:#d0d5dd;--text:#1d1d1f;--text-secondary:#6b7280;--success:#16a34a;--danger:#dc2626;--radius:8px;--shadow:0 1px 3px rgba(0,0,0,.08)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between}
+header h1{font-size:18px;font-weight:600}
+.container{max-width:960px;margin:24px auto;padding:0 16px}
+.tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:16px}
+.tab{padding:10px 20px;cursor:pointer;font-size:14px;font-weight:500;color:var(--text-secondary);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .2s}
+.tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+.card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:16px}
+.card h3{font-size:14px;font-weight:600;margin-bottom:12px}
+.row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.row label{font-size:13px;font-weight:500;white-space:nowrap;min-width:60px}
+.row input,.row select{flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px}
+.btn{padding:7px 16px;border:none;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;transition:background .2s}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:#1557b0}
+.btn-success{background:var(--success);color:#fff}
+.btn-success:hover{background:#15803d}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-danger:hover{background:#b91c1c}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{background:#f3f4f6}
+.btn-sm{padding:4px 10px;font-size:12px}
+.item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;font-size:13px}
+.item .info{flex:1}
+.item .info .name{font-weight:500}
+.item .info .meta{color:var(--text-secondary);font-size:12px;margin-top:2px}
+.swatch-group{display:flex;gap:2px;flex-wrap:wrap;margin-top:4px}
+.swatch{width:18px;height:18px;border-radius:3px;border:1px solid rgba(0,0,0,.1);display:inline-block}
+.color-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.color-grid .field{display:flex;align-items:center;gap:6px}
+.color-grid .field label{font-size:11px;color:var(--text-secondary);min-width:50px}
+.color-grid .field input[type=color]{width:32px;height:28px;padding:0;border:1px solid var(--border);border-radius:4px;cursor:pointer}
+.color-grid .field input[type=text]{flex:1;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:monospace}
+.empty{color:var(--text-secondary);font-size:13px;padding:16px;text-align:center}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1d1d1f;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;z-index:999;opacity:0;transition:opacity .3s}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<header>
+<h1>PPT Render Engine — 配置</h1>
+</header>
+<div class="container">
+<div class="tabs">
+<div class="tab active" data-tab="templates">模板管理</div>
+<div class="tab" data-tab="schemes">配色管理</div>
+<div class="tab" data-tab="maintenance">维护</div>
+</div>
+
+<div class="tab-panel active" id="panel-templates">
+<div class="card">
+<h3>上传模板</h3>
+<div class="row"><label>名称</label><input id="tmpl-name" placeholder="例如: 标准1"></div>
+<div class="row"><label>文件</label><input type="file" id="tmpl-file" accept=".pptx"></div>
+<button class="btn btn-primary" id="tmpl-upload-btn">上传</button>
+</div>
+<div class="card">
+<h3>已加载模板</h3>
+<div id="tmpl-list"></div>
+</div>
+</div>
+
+<div class="tab-panel" id="panel-schemes">
+<div class="card">
+<h3>新增 / 编辑配色</h3>
+<div class="row"><label>名称</label><input id="scheme-name" placeholder="例如: 深邃蓝"></div>
+<div class="color-grid" id="scheme-editor"></div>
+<button class="btn btn-primary" id="scheme-save-btn" style="margin-top:8px">保存</button>
+</div>
+<div class="card">
+<h3>配色列表</h3>
+<div id="scheme-list"></div>
+</div>
+</div>
+
+<div class="tab-panel" id="panel-maintenance">
+<div class="card">
+<h3>临时文件</h3>
+<p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">清除渲染过程中生成的临时 .pptx / .png 文件。</p>
+<button class="btn btn-danger" id="cleanup-btn">清理临时文件</button>
+</div>
+</div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const COLOR_KEYS=['dk1','lt1','dk2','lt2','accent1','accent2','accent3','accent4','accent5','accent6','hlink','folHlink'];
+const COLOR_LABELS={dk1:'深色1',lt1:'浅色1',dk2:'深色2',lt2:'浅色2',accent1:'强调1',accent2:'强调2',accent3:'强调3',accent4:'强调4',accent5:'强调5',accent6:'强调6',hlink:'超链接',folHlink:'已访问链接'};
+
+function $(id){return document.getElementById(id)}
+function qs(s){return document.querySelector(s)}
+function qsa(s){return document.querySelectorAll(s)}
+
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
+
+// ---- Tab switching ----
+qsa('.tab').forEach(tab=>{
+tab.addEventListener('click',()=>{
+qsa('.tab').forEach(t=>t.classList.remove('active'));
+qsa('.tab-panel').forEach(p=>p.classList.remove('active'));
+tab.classList.add('active');
+document.getElementById('panel-'+tab.dataset.tab).classList.add('active');
+});
+});
+
+// ---- Color scheme editor ----
+function buildSchemeEditor(colors){
+const g=$('scheme-editor');g.innerHTML='';
+COLOR_KEYS.forEach(k=>{
+const d=document.createElement('div');d.className='field';
+const lb=document.createElement('label');lb.textContent=COLOR_LABELS[k]||k;
+const ip=document.createElement('input');ip.type='color';
+const tx=document.createElement('input');tx.type='text';
+ip.addEventListener('input',()=>{tx.value=ip.value.slice(1).toUpperCase()});
+tx.addEventListener('input',()=>{try{ip.value='#'+tx.value.replace(/^#/,'')}catch(e){}});
+if(colors&&colors[k]){ip.value='#'+colors[k];tx.value=colors[k].toUpperCase()}
+else{ip.value='#000000';tx.value='000000'}
+d.appendChild(lb);d.appendChild(ip);d.appendChild(tx);
+g.appendChild(d);
+});
+}
+
+function getSchemeFromEditor(){
+const colors={};
+document.querySelectorAll('#scheme-editor .field').forEach(f=>{
+const lb=f.querySelector('label').textContent;
+const tx=f.querySelector('input[type=text]').value.replace('#','').toUpperCase();
+const key=Object.entries(COLOR_LABELS).find(([k,v])=>v===lb)||[lb];
+colors[key[0]]=tx;
+});
+return colors;
+}
+
+// ---- Templates ----
+async function loadTemplates(){
+const el=$('tmpl-list');
+try{
+const r=await fetch('/template/list');
+if(!r.ok){el.innerHTML='<div class="empty">加载失败</div>';return}
+const d=await r.json();
+if(!d.templates||!d.templates.length){el.innerHTML='<div class="empty">暂无模板</div>';return}
+el.innerHTML='';
+d.templates.forEach(t=>{
+const item=document.createElement('div');item.className='item';
+item.innerHTML=`
+<div class="info"><div class="name">${t.name}</div>
+<div class="meta">${t.slide_width/12700|0}×${t.slide_height/12700|0}pt · ${t.layouts.length} 个布局</div></div>
+<button class="btn btn-danger btn-sm" data-name="${t.name}">删除</button>`;
+item.querySelector('button').addEventListener('click',async()=>{
+if(!confirm(`删除模板「${t.name}」?`))return;
+const r=await fetch(`/template/${t.name}`,{method:'DELETE'});
+if(r.ok){toast('已删除');loadTemplates()}else toast('删除失败');
+});
+el.appendChild(item);
+});
+}catch(e){el.innerHTML='<div class="empty">加载失败: '+e.message+'</div>'}
+}
+
+$('tmpl-upload-btn').addEventListener('click',async()=>{
+const name=$('tmpl-name').value.trim();
+const file=$('tmpl-file').files[0];
+if(!name||!file){toast('请填写名称并选择文件');return}
+const fd=new FormData();fd.append('file',file);
+try{
+const r=await fetch(`/template/upload/${encodeURIComponent(name)}`,{method:'POST',body:fd});
+if(r.ok){toast('上传成功');$('tmpl-name').value='';$('tmpl-file').value='';loadTemplates()}
+else{const e=await r.text();toast('上传失败: '+e)}
+}catch(e){toast('上传失败: '+e.message)}
+});
+
+// ---- Color schemes ----
+async function loadSchemes(){
+const el=$('scheme-list');
+try{
+const r=await fetch('/color-scheme/list');
+if(!r.ok){el.innerHTML='<div class="empty">加载失败</div>';return}
+const d=await r.json();
+const[sRes,sDef]=await Promise.all([
+fetch('/color-scheme/list').then(r=>r.json()),
+r
+]);
+const schemes=await Promise.all(d.schemes.map(async name=>{
+const r=await fetch(`/color-scheme/${encodeURIComponent(name)}`);
+return r.ok?r.json():null;
+}));
+const valid=schemes.filter(Boolean);
+if(!valid.length){el.innerHTML='<div class="empty">暂无配色</div>';return}
+el.innerHTML='';
+valid.forEach(s=>{
+const item=document.createElement('div');item.className='item';
+let swatches='';
+COLOR_KEYS.forEach(k=>{if(s.colors[k])swatches+=`<span class="swatch" style="background:#${s.colors[k]}"></span>`});
+const isDefault=s.name===d.default;
+item.innerHTML=`
+<div class="info"><div class="name">${s.name}${isDefault?' <span style="color:var(--success);font-size:11px">[默认]</span>':''}</div>
+<div class="swatch-group">${swatches}</div></div>
+<div style="display:flex;gap:4px">
+${!isDefault?`<button class="btn btn-outline btn-sm default-btn" data-name="${s.name}">设为默认</button>`:''}
+<button class="btn btn-outline btn-sm edit-btn" data-name="${s.name}">编辑</button>
+<button class="btn btn-danger btn-sm delete-btn" data-name="${s.name}">删除</button>
+</div>`;
+item.querySelector('.edit-btn').addEventListener('click',()=>editScheme(s.name,s.colors));
+item.querySelector('.delete-btn').addEventListener('click',async()=>{
+if(!confirm(`删除配色「${s.name}」?`))return;
+const r=await fetch(`/color-scheme/${encodeURIComponent(s.name)}`,{method:'DELETE'});
+if(r.ok){toast('已删除');loadSchemes()}else toast('删除失败');
+});
+const db=item.querySelector('.default-btn');
+if(db)db.addEventListener('click',async()=>{
+const r=await fetch(`/color-scheme/default/${encodeURIComponent(s.name)}`,{method:'POST'});
+if(r.ok){toast('已设为默认');loadSchemes()}else toast('设置失败');
+});
+el.appendChild(item);
+});
+loadDefaultScheme(d.default);
+}catch(e){el.innerHTML='<div class="empty">加载失败: '+e.message+'</div>'}
+}
+
+async function loadDefaultScheme(defaultName){
+try{
+const r=await fetch(`/color-scheme/${encodeURIComponent(defaultName)}`);
+if(r.ok){const d=await r.json();$('scheme-name').placeholder='例如: 深邃蓝';if(d.colors)buildSchemeEditor(d.colors)}
+}catch(e){}
+}
+
+function editScheme(name,colors){
+$('scheme-name').value=name;
+buildSchemeEditor(colors);
+window.scrollTo({top:0,behavior:'smooth'});
+}
+
+$('scheme-save-btn').addEventListener('click',async()=>{
+const name=$('scheme-name').value.trim();
+if(!name){toast('请填写配色名称');return}
+const colors=getSchemeFromEditor();
+try{
+const r=await fetch(`/color-scheme/${encodeURIComponent(name)}`,{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({name,colors})
+});
+if(r.ok){toast('保存成功');loadSchemes()}else{const e=await r.json();toast('保存失败: '+e.detail)}
+}catch(e){toast('保存失败: '+e.message)}
+});
+
+// ---- Temp cleanup ----
+$('cleanup-btn').addEventListener('click',async()=>{
+if(!confirm('确定清除所有临时文件？'))return;
+const btn=$('cleanup-btn');btn.disabled=true;btn.textContent='清理中...';
+try{
+const res=await fetch('/temp',{method:'DELETE'});
+if(!res.ok){toast('清理失败');btn.disabled=false;btn.textContent='清理临时文件';return}
+const d=await res.json();
+toast(`已清除 ${d.files_removed} 个临时文件`);
+btn.textContent='清理临时文件';
+btn.disabled=false;
+}catch(e){toast('清理失败: '+e.message);btn.disabled=false;btn.textContent='清理临时文件'}
+});
+
+// ---- Init ----
+buildSchemeEditor(null);
+loadTemplates();
+loadSchemes();
+</script>
+</body>
+</html>

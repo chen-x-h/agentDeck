@@ -1,0 +1,15 @@
+FROM python:3.12-slim
+
+RUN pip install uv --quiet
+
+WORKDIR /app
+
+COPY mcp_server/pyproject.toml mcp_server/
+RUN cd mcp_server && uv sync --no-dev
+
+COPY mcp_server/src/ mcp_server/src/
+
+EXPOSE 8010
+
+WORKDIR /app/mcp_server
+CMD ["uv", "run", "python", "-m", "mcp_server"]
