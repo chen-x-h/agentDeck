@@ -53,6 +53,9 @@ class TemplateManager:
         for i, layout in enumerate(prs.slide_layouts):
             placeholders = []
             for ph in layout.placeholders:
+                ptype = str(ph.placeholder_format.type)
+                if ptype in ("DT", "FTR", "SLD_NUM"):
+                    continue
                 placeholders.append({
                     "idx": ph.placeholder_format.idx,
                     "name": ph.name,

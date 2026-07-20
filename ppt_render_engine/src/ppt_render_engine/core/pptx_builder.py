@@ -143,9 +143,14 @@ def build_pptx(presentation: Presentation, output_path: str) -> None:
             pptx_slide = prs.slides.add_slide(layout)
         slide_data = _resolve_placeholder_coords(slide_data, layout)
         slide_data = _apply_fallback_coords(slide_data, presentation)
-        warnings = validate_slide(slide_data, slide_index=i)
-        for w in warnings:
+        slide_data = _resolve_percent_coords(slide_data, presentation.slide_width, presentation.slide_height)
+        slide_errors, slide_warnings = validate_slide(slide_data, slide_index=i)
+        for w in slide_warnings:
             logger.warning("Layout validation", slide=i, issue=w)
+        if slide_errors:
+            raise ValueError(
+                f"Slide {i} validation failed: {'; '.join(slide_errors)}"
+            )
         layout_name = slide_data.layout_id or (slide_data.preset or "blank")
         logger.debug("Processing slide", index=i, layout=layout_name)
         _build_slide(pptx_slide, slide_data, csm, scheme_name)
@@ -228,6 +233,30 @@ def _apply_fallback_coords(slide_data: Slide, presentation: Presentation) -> Sli
     return resolved
 
 
+def _resolve_percent_coords(slide_data: Slide, pres_w: float, pres_h: float) -> Slide:
+    """Convert percentage coordinates (0-100) to EMU. Values > 100 are treated as EMU already."""
+    resolved = slide_data.model_copy(deep=True)
+    for shape in resolved.shapes:
+        _pct_to_emu(shape, pres_w, pres_h)
+        if shape.children:
+            pw = shape.width
+            ph = shape.height
+            for child in shape.children:
+                _pct_to_emu(child, pw, ph)
+    return resolved
+
+
+def _pct_to_emu(shape: Shape, ref_w: float, ref_h: float):
+    if 0 < shape.left <= 100:
+        shape.left = int(shape.left / 100 * ref_w)
+    if 0 < shape.top <= 100:
+        shape.top = int(shape.top / 100 * ref_h)
+    if 0 < shape.width <= 100:
+        shape.width = int(shape.width / 100 * ref_w)
+    if 0 < shape.height <= 100:
+        shape.height = int(shape.height / 100 * ref_h)
+
+
 def _set_slide_size(prs, width: float, height: float):
     if width and height:
         prs.slide_width = int(width)
@@ -256,6 +285,18 @@ def _build_slide(pptx_slide, slide_data: Slide, csm, scheme_name: str):
         _set_slide_background(pptx_slide, slide_data.background_color)
     ph_map = _build_placeholder_map(pptx_slide)
     for shape_data in sorted(slide_data.shapes, key=lambda s: s.z_order or 0):
+        # ---- container mode: flatten children to absolute positions ----
+        if shape_data.children:
+            for child in shape_data.children:
+                abs_child = child.model_copy(deep=True)
+                abs_child.left += shape_data.left
+                abs_child.top += shape_data.top
+                if not abs_child.width:
+                    abs_child.width = shape_data.width
+                if not abs_child.height:
+                    abs_child.height = shape_data.height
+                _build_shape(pptx_slide, abs_child, csm, scheme_name)
+            continue
         ref = shape_data.placeholder or shape_data.role
         if ref and ref.lower() in ph_map:
             target = ph_map[ref.lower()]
@@ -267,16 +308,18 @@ def _build_slide(pptx_slide, slide_data: Slide, csm, scheme_name: str):
             if shape_data.text_content and target.has_text_frame:
                 tf = target.text_frame
                 tf.word_wrap = True
-                tf.auto_size = MSO_AUTO_SIZE.NONE
+                tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
                 bodyPr = tf._txBody.find(qn('a:bodyPr'))
                 if bodyPr is not None:
-                    bodyPr.set('vertOverflow', 'clip')
+                    bodyPr.set('vertOverflow', 'overflow')
                 existing = list(tf.paragraphs)
                 for i, para_data in enumerate(shape_data.text_content):
                     if i < len(existing):
                         p = existing[i]
                     else:
                         p = tf.add_paragraph()
+                    _clear_paragraph_bullets(p)
+                    p.level = para_data.indent_level or 0
                     for run in list(p.runs):
                         run._r.getparent().remove(run._r)
                     _build_paragraph(p, para_data, csm, scheme_name)
@@ -330,6 +373,8 @@ def _build_shape(pptx_slide, shape_data: Shape, csm, scheme_name: str):
             else:
                 _remove_empty_txBody(shape)
             return
+        logger.warning("Unknown auto_shape_type, falling back to textbox",
+                       type=shape_data.auto_shape_type, id=shape_data.id)
 
     txBox = pptx_slide.shapes.add_textbox(left, top, width, height)
     txBox.name = shape_data.id or f"shape_{shape_data.z_order}"
@@ -455,10 +500,10 @@ def _build_image(pptx_slide, image_data, left, top, width, height, shape_id=None
 
 def _build_text_frame(tf, paragraphs: list[Paragraph], csm, scheme_name: str):
     tf.word_wrap = True
-    tf.auto_size = MSO_AUTO_SIZE.NONE
+    tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
     bodyPr = tf._txBody.find(qn('a:bodyPr'))
     if bodyPr is not None:
-        bodyPr.set('vertOverflow', 'clip')
+                    bodyPr.set('vertOverflow', 'overflow')
     for i, para_data in enumerate(paragraphs):
         if i == 0:
             p = tf.paragraphs[0]
@@ -538,6 +583,18 @@ def _build_table(pptx_slide, table_data: TableContent, left, top, width, height,
                     hex_val = cell_data.background_color.upper().lstrip("#")
                     etree.SubElement(sf, qn('a:srgbClr'), val=hex_val)
     return table_shape
+
+
+def _clear_paragraph_bullets(p):
+    pPr = p._p.find(qn('a:pPr'))
+    if pPr is None:
+        return
+    bu_tags = {qn('a:buChar'), qn('a:buAutoNum'), qn('a:buNone'),
+               qn('a:buBlip'), qn('a:buClr'), qn('a:buSzPct'),
+               qn('a:buSzPts'), qn('a:buFont')}
+    for child in list(pPr):
+        if child.tag in bu_tags:
+            pPr.remove(child)
 
 
 def _set_slide_background(pptx_slide, color: str):

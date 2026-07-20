@@ -55,6 +55,7 @@ header h1{font-size:18px;font-weight:600}
 <div class="tabs">
 <div class="tab active" data-tab="templates">模板管理</div>
 <div class="tab" data-tab="schemes">配色管理</div>
+<div class="tab" data-tab="styles">设计风格</div>
 <div class="tab" data-tab="maintenance">维护</div>
 </div>
 
@@ -81,6 +82,24 @@ header h1{font-size:18px;font-weight:600}
 <div class="card">
 <h3>配色列表</h3>
 <div id="scheme-list"></div>
+</div>
+</div>
+
+<div class="tab-panel" id="panel-styles">
+<div class="card">
+<h3>设计风格列表</h3>
+<div id="style-list"></div>
+</div>
+<div class="card">
+<h3>新建 / 编辑风格</h3>
+<p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">设计风格是 Markdown 格式的设计规范文档，描述配色、字号、布局等设计约定。用户可以下载参考或自行编写上传。</p>
+<div class="row"><label>名称</label><input id="style-name" placeholder="例如: 项目介绍"></div>
+<div class="row"><label>描述</label><input id="style-desc" placeholder="简短描述，如适用场景"></div>
+<div class="row" style="align-items:flex-start"><label style="margin-top:6px">Markdown</label><textarea id="style-markdown" style="flex:1;min-height:200px;padding:8px;border:1px solid var(--border);border-radius:6px;font-family:monospace;font-size:12px;resize:vertical" placeholder="在此编写或粘贴设计规范 Markdown 内容..."></textarea></div>
+<div style="display:flex;gap:8px">
+<button class="btn btn-primary" id="style-save-btn">保存风格</button>
+<button class="btn btn-outline" id="style-clear-btn">清空表单</button>
+</div>
 </div>
 </div>
 
@@ -255,6 +274,89 @@ if(r.ok){toast('保存成功');loadSchemes()}else{const e=await r.json();toast('
 }catch(e){toast('保存失败: '+e.message)}
 });
 
+// ---- Design styles ----
+async function loadStyles(){
+const el=$('style-list');
+try{
+const r=await fetch('/agent/design-styles/list');
+if(!r.ok){el.innerHTML='<div class="empty">加载失败</div>';return}
+const d=await r.json();
+if(!d.styles||!d.styles.length){el.innerHTML='<div class="empty">暂无设计风格</div>';return}
+el.innerHTML='';
+d.styles.forEach(s=>{
+const item=document.createElement('div');item.className='item';
+const isDefault=s.name===d.default;
+item.innerHTML=`
+<div class="info"><div class="name">${s.name}${isDefault?' <span style="color:var(--success);font-size:11px">[默认]</span>':''}</div>
+<div class="meta">${s.description||''} · ${s.char_count} 字符</div></div>
+<div style="display:flex;gap:4px;flex-shrink:0">
+${!isDefault?`<button class="btn btn-outline btn-sm default-btn" data-name="${s.name}">设为默认</button>`:''}
+<button class="btn btn-outline btn-sm edit-btn" data-name="${s.name}">编辑</button>
+<button class="btn btn-outline btn-sm dl-btn" data-name="${s.name}">下载</button>
+<button class="btn btn-danger btn-sm delete-btn" data-name="${s.name}">删除</button>
+</div>`;
+const db=item.querySelector('.default-btn');
+if(db)db.addEventListener('click',async()=>{
+const r=await fetch(`/agent/design-styles/default/${encodeURIComponent(s.name)}`,{method:'POST'});
+if(r.ok){toast('已设为默认');loadStyles()}else toast('设置失败');
+});
+item.querySelector('.edit-btn').addEventListener('click',async()=>{
+try{
+const r=await fetch(`/agent/design-styles/${encodeURIComponent(s.name)}`);
+if(!r.ok)return;
+const d=await r.json();
+$('style-name').value=d.name;
+$('style-desc').value=d.description||'';
+$('style-markdown').value=d.markdown||'';
+window.scrollTo({top:document.querySelector('.card:last-child').offsetTop-80,behavior:'smooth'});
+}catch(e){toast('加载失败')}
+});
+item.querySelector('.dl-btn').addEventListener('click',()=>{
+const a=document.createElement('a');
+a.href=`/agent/design-styles/${encodeURIComponent(s.name)}/download`;
+a.download=`${s.name}.md`;
+a.click();
+});
+item.querySelector('.delete-btn').addEventListener('click',async()=>{
+if(!confirm(`删除风格「${s.name}」?`))return;
+const r=await fetch(`/agent/design-styles/${encodeURIComponent(s.name)}`,{method:'DELETE'});
+if(r.ok){toast('已删除');loadStyles()}else toast('删除失败');
+});
+el.appendChild(item);
+});
+}catch(e){el.innerHTML='<div class="empty">加载失败: '+e.message+'</div>'}
+}
+
+$('style-save-btn').addEventListener('click',async()=>{
+const name=$('style-name').value.trim();
+const desc=$('style-desc').value.trim();
+const md=$('style-markdown').value;
+if(!name){toast('请填写风格名称');return}
+const btn=$('style-save-btn');btn.disabled=true;btn.textContent='保存中...';
+try{
+// Try update first, fall back to create
+let r=await fetch(`/agent/design-styles/${encodeURIComponent(name)}`,{
+method:'PUT',headers:{'Content-Type':'application/json'},
+body:JSON.stringify({description:desc,markdown:md})
+});
+if(r.status===404){
+r=await fetch(`/agent/design-styles/${encodeURIComponent(name)}`,{
+method:'POST',headers:{'Content-Type':'application/json'},
+body:JSON.stringify({name,description:desc,markdown:md})
+});
+}
+if(r.ok){toast('保存成功');loadStyles()}
+else{const e=await r.json();toast('保存失败: '+(e.detail||''))}
+}catch(e){toast('保存失败: '+e.message)}
+finally{btn.disabled=false;btn.textContent='保存风格'}
+});
+
+$('style-clear-btn').addEventListener('click',()=>{
+$('style-name').value='';
+$('style-desc').value='';
+$('style-markdown').value='';
+});
+
 // ---- Temp cleanup ----
 $('cleanup-btn').addEventListener('click',async()=>{
 if(!confirm('确定清除所有临时文件？'))return;
@@ -273,6 +375,7 @@ btn.disabled=false;
 buildSchemeEditor(null);
 loadTemplates();
 loadSchemes();
+loadStyles();
 </script>
 </body>
 </html>

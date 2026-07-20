@@ -17,5 +17,8 @@ template:
 color_scheme:
   storage_path: "./storage/color_schemes/color_schemes.json"
 
+design_style:
+  storage_path: "./storage/design_styles"
+
 sync:
   json_path: "./sync/presentation.json"

@@ -9,10 +9,12 @@ from ppt_render_engine.api.preview import router as preview_router
 from ppt_render_engine.api.template_mgmt import router as template_router
 from ppt_render_engine.api.image import router as image_router
 from ppt_render_engine.api.color_scheme import router as color_scheme_router
+from ppt_render_engine.api.design_style import router as design_style_router
 from ppt_render_engine.api.sync import router as sync_router
 from ppt_render_engine.api.agent import router as agent_router
 from ppt_render_engine.core.template import get_template_manager
 from ppt_render_engine.core.color_scheme import get_color_scheme_manager
+from ppt_render_engine.core.design_style import get_design_style_manager
 from ppt_render_engine.log_config import app_logger
 from ppt_render_engine.temp_util import get_temp_dir
 
@@ -27,6 +29,8 @@ async def lifespan(app: FastAPI):
         logger.info("Templates preloaded on startup", count=len(loaded), names=loaded)
     csm = get_color_scheme_manager()
     logger.info("Color schemes loaded", count=len(csm.list_schemes()), default=csm.get_default_name())
+    dsm = get_design_style_manager()
+    logger.info("Design styles loaded", count=len(dsm.list_styles()), default=dsm.get_default_name())
     get_temp_dir()
     logger.info("Temp directory ready")
     yield
@@ -52,6 +56,7 @@ app.include_router(preview_router)
 app.include_router(template_router)
 app.include_router(image_router)
 app.include_router(color_scheme_router)
+app.include_router(design_style_router)
 app.include_router(sync_router)
 app.include_router(agent_router)
 

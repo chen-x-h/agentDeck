@@ -188,7 +188,7 @@
             {
               "runs": [
                 {
-                  "text": "装饰性形状示例",
+                  "text": "容器组合示例",
                   "font_size": 360000,
                   "bold": true
                 }
@@ -197,52 +197,95 @@
           ]
         },
         {
-          "id": "4-正文",
+          "id": "4-步骤区域",
           "type": "textbox",
           "placeholder": "1",
-          "text_content": [
+          "children": [
             {
-              "runs": [
+              "id": "4-说明",
+              "type": "textbox",
+              "left": 0,
+              "top": 0,
+              "width": 7500000,
+              "height": 500000,
+              "text_content": [
                 {
-                  "text": "多个装饰形状可以用坐标定位，但必须避开正文占位符区域。",
-                  "font_size": 177800
+                  "runs": [
+                    {
+                      "text": "容器模式：多个子元素组合到一个容器中，容器绑定一个 placeholder。",
+                      "font_size": 160000
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "4-步骤1",
+              "type": "shape",
+              "auto_shape_type": "rounded_rectangle",
+              "left": 0,
+              "top": 600000,
+              "width": 2400000,
+              "height": 900000,
+              "background_color": "#4472C4",
+              "text_content": [
+                {
+                  "alignment": "center",
+                  "runs": [
+                    {
+                      "text": "步骤 1",
+                      "font_size": 240000,
+                      "bold": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "4-步骤2",
+              "type": "shape",
+              "auto_shape_type": "rounded_rectangle",
+              "left": 2550000,
+              "top": 600000,
+              "width": 2400000,
+              "height": 900000,
+              "background_color": "#70AD47",
+              "text_content": [
+                {
+                  "alignment": "center",
+                  "runs": [
+                    {
+                      "text": "步骤 2",
+                      "font_size": 240000,
+                      "bold": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "4-步骤3",
+              "type": "shape",
+              "auto_shape_type": "rounded_rectangle",
+              "left": 5100000,
+              "top": 600000,
+              "width": 2400000,
+              "height": 900000,
+              "background_color": "#ED7D31",
+              "text_content": [
+                {
+                  "alignment": "center",
+                  "runs": [
+                    {
+                      "text": "步骤 3",
+                      "font_size": 240000,
+                      "bold": true
+                    }
+                  ]
                 }
               ]
             }
           ]
-        },
-        {
-          "id": "4-步骤1",
-          "type": "shape",
-          "placeholder": "1",
-          "left": 500000,
-          "top": 3200000,
-          "width": 3500000,
-          "height": 1000000,
-          "auto_shape_type": "rounded_rectangle",
-          "background_color": "#4472C4"
-        },
-        {
-          "id": "4-步骤2",
-          "type": "shape",
-          "placeholder": "1",
-          "left": 4400000,
-          "top": 3200000,
-          "width": 3500000,
-          "height": 1000000,
-          "auto_shape_type": "rounded_rectangle",
-          "background_color": "#70AD47"
-        },
-        {
-          "id": "4-步骤3",
-          "type": "shape",
-          "placeholder": "1",
-          "left": 8300000,
-          "top": 3200000,
-          "width": 3500000,
-          "height": 1000000,
-          "auto_shape_type": "rounded_rectangle",
-          "background_color": "#ED7D31"
         }
       ]
     }

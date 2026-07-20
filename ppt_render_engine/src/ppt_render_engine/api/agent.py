@@ -125,39 +125,123 @@ def _validate_shape(shape: dict, index: int = 0) -> list[str]:
     return []
 
 
-def _validate_slide(slide: dict, page: int = 0) -> list[str]:
-    """Validate a slide dict and all its shapes. Returns list of errors."""
-    errors = []
+def _validate_slide(slide: dict, page: int = 0) -> tuple[list[str], list[str]]:
+    """Validate a slide dict and all its shapes. Returns (errors, warnings)."""
+    errors, warnings = [], []
     try:
         Slide(**slide)
     except ValidationError as e:
         errors.extend(_fmt_val_err(f"第{page}页", err) for err in e.errors())
     for i, shape in enumerate(slide.get("shapes", [])):
         errors.extend(_validate_shape(shape, i))
-        _warn_text_overflow(shape, page, i, errors)
-    return errors
+        warn = _warn_text_overflow(shape, page, str(i))
+        if warn:
+            warnings.append(warn)
+        for ci, child in enumerate(shape.get("children", [])):
+            child_warn = _warn_text_overflow(child, page, f"{i}.children[{ci}]")
+            if child_warn:
+                warnings.append(child_warn)
+    errors.extend(_check_container_errors(slide, page))
+    warnings.extend(_warn_overlaps(slide, page))
+    return errors, warnings
 
 
-def _warn_text_overflow(shape: dict, page: int, idx: int, errors: list):
+def _warn_text_overflow(shape: dict, page: int, idx: str) -> str | None:
     if shape.get("type") not in ("textbox", "shape"):
-        return
-    if shape.get("placeholder"):
-        return
+        return None
     tc = shape.get("text_content") or []
     w = shape.get("width") or 1
     h = shape.get("height") or 1
-    total_chars = sum(len(r.get("text", "")) for p in tc for r in p.get("runs", []))
+    # 百分比转 EMU 以便估算
+    slide_w = 12192000
+    slide_h = 6858000
+    if 0 < w <= 100:
+        w = w / 100 * slide_w
+    if 0 < h <= 100:
+        h = h / 100 * slide_h
+    total_chars = 0
+    cjk_count = 0
+    for p in tc:
+        for r in p.get("runs", []):
+            txt = r.get("text", "")
+            total_chars += len(txt)
+            cjk_count += sum(1 for c in txt if '\u4e00' <= c <= '\u9fff' or '\u3000' <= c <= '\u303f')
     max_fs = max(
         (r.get("font_size") or 177800 for p in tc for r in p.get("runs", [])),
         default=177800,
     )
-    est_w = total_chars * max_fs * 0.6
-    est_h = sum(p.get("runs", []) and max(r.get("font_size", 177800) for r in p.get("runs", [])) * 1.4 or 0 for p in tc)
-    if est_w > w * 1.2 or est_h > h * 1.2:
-        errors.append(
-            f"第{page}页.形状[{idx}]: 文本可能溢出 (约{int(est_w)}x{int(est_h)} EMU, "
-            f"框 {w}x{h} EMU)。建议增大框尺寸、减小字号或缩短文字"
+    cjk_ratio = cjk_count / max(total_chars, 1)
+    char_w = max_fs * (0.9 if cjk_ratio > 0.3 else 0.55)
+    est_w = total_chars * char_w
+    est_h = sum(
+        max(r.get("font_size", 177800) for r in p.get("runs", [])) * 1.4
+        for p in tc if p.get("runs")
+    ) or max_fs * 1.4
+    ratio_w = est_w / w
+    ratio_h = est_h / h
+    if ratio_w > 1.2 or ratio_h > 1.2:
+        return (
+            f"第{page}页.形状[{idx}]: 文本溢出 "
+            f"(估算需 {int(est_w)}x{int(est_h)} EMU，框 {w}x{h} EMU，"
+            f"{'宽' if ratio_w > 1.2 else ''}{'高' if ratio_h > 1.2 else ''})。"
+            f"建议增大框尺寸、减小字号或缩短文字"
         )
+    return None
+
+
+def _check_container_errors(slide: dict, page: int) -> list[str]:
+    errors = []
+    used_ph: set[str] = set()
+    for i, shape in enumerate(slide.get("shapes", [])):
+        if shape.get("children"):
+            ref = shape.get("placeholder")
+            if ref:
+                if ref in used_ph:
+                    errors.append(f"第{page}页: 多个元素引用同一 placeholder '{ref}'，请合并到一个容器中")
+                used_ph.add(ref)
+            for ci, child in enumerate(shape.get("children", [])):
+                if child.get("placeholder"):
+                    errors.append(f"第{page}页.形状[{i}]容器.子[{ci}]: 子元素不应有 placeholder")
+                if child.get("children"):
+                    errors.append(f"第{page}页.形状[{i}]容器.子[{ci}]: 不支持嵌套 children")
+        elif shape.get("placeholder"):
+            ref = shape["placeholder"]
+            if ref in used_ph:
+                errors.append(f"第{page}页: 多个元素引用同一 placeholder '{ref}'，请合并到一个容器中")
+            used_ph.add(ref)
+    return errors
+
+
+def _warn_overlaps(slide: dict, page: int) -> list[str]:
+    """Check for overlapping shapes and return warnings."""
+    warnings = []
+    shapes = slide.get("shapes", [])
+    for i, a in enumerate(shapes):
+        for b in shapes[i + 1:]:
+            ax = a.get("left", 0)
+            ay = a.get("top", 0)
+            aw = a.get("width", 0)
+            ah = a.get("height", 0)
+            bx = b.get("left", 0)
+            by = b.get("top", 0)
+            bw = b.get("width", 0)
+            bh = b.get("height", 0)
+            l = max(ax, bx)
+            t = max(ay, by)
+            r = min(ax + aw, bx + bw)
+            btm = min(ay + ah, by + bh)
+            if l >= r or t >= btm:
+                continue
+            area = (r - l) * (btm - t)
+            ratio = area / min(aw * ah, bw * bh) if min(aw * ah, bw * bh) > 0 else 0
+            if ratio > 0.2:
+                a_id = a.get("id", i)
+                b_id = b.get("id", i + 1)
+                warnings.append(
+                    f"第{page}页: 形状「{a_id}」与「{b_id}」重叠 "
+                    f"(重叠比 {ratio:.0%}，建议调整位置)"
+                )
+    return warnings
 
 
 def _fmt_val_err(prefix: str, err: dict) -> str:
@@ -166,7 +250,7 @@ def _fmt_val_err(prefix: str, err: dict) -> str:
     return f"{prefix}.{loc}: {err['msg']} (got {val!r})"
 
 
-def _raise_if_invalid(errors: list[str]):
+def _reject_if_errors(errors: list[str]):
     if errors:
         msg = "数据校验失败，请修正后重试：\n" + "\n".join(errors)
         raise HTTPException(400, detail=msg)
@@ -176,24 +260,32 @@ def _raise_if_invalid(errors: list[str]):
 # 1. POST /agent/sync  —  Upload JSON, overwrite sync file, fix ID prefixes
 # ---------------------------------------------------------------------------
 
-@router.post("/sync", response_class=PlainTextResponse)
+@router.post("/sync")
 async def agent_sync(body: dict = Body(...)):
     """Upload a full JSON presentation to overwrite the sync file.
     Automatically fixes shape ID prefixes to match each slide's page number.
+    Returns both the saved data and validation warnings for model feedback.
     """
     if "slides" not in body:
         raise HTTPException(400, detail="缺少 'slides' 字段")
     for slide in body.get("slides", []):
         for i, shape in enumerate(slide.get("shapes", [])):
             slide["shapes"][i] = _normalize_shape(shape)
-    errors = []
+    errors, warnings = [], []
     for i, slide in enumerate(body.get("slides", [])):
-        errors.extend(_validate_slide(slide, i))
-    _raise_if_invalid(errors)
+        e, w = _validate_slide(slide, i)
+        errors.extend(e)
+        warnings.extend(w)
+    _reject_if_errors(errors)
     _reindex_ids(body)
     _save_sync(body)
     logger.info("Agent sync upload", slides=len(body.get("slides", [])))
-    return json.dumps(body, ensure_ascii=False, indent=2)
+    return {
+        "status": "ok",
+        "data": body,
+        "warnings": warnings,
+        "slides": len(body.get("slides", [])),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -311,12 +403,12 @@ async def agent_put_page(
             existing["shapes"] = [_normalize_shape(s) for s in (v or [])]
         else:
             existing[k] = v
-    errors = _validate_slide(existing, page)
-    _raise_if_invalid(errors)
+    errors, warnings = _validate_slide(existing, page)
+    _reject_if_errors(errors)
     _reindex_ids(data)
     _save_sync(data)
     logger.info("Agent replaced page", page=page)
-    return {"status": "ok", "page": page, "shapes": len(existing.get("shapes", []))}
+    return {"status": "ok", "page": page, "shapes": len(existing.get("shapes", [])), "warnings": warnings}
 
 
 # ---------------------------------------------------------------------------
@@ -335,19 +427,33 @@ async def agent_put_element(
         raise HTTPException(400, detail=f"页码越界：共 {len(slides)} 页")
     shapes = slides[page].get("shapes", [])
     normalized = _normalize_shape(dict(body))
-    _raise_if_invalid(_validate_shape(normalized))
+    _reject_if_errors(_validate_shape(normalized))
     for i, s in enumerate(shapes):
         if s.get("id") == id:
             normalized["id"] = id
             shapes[i] = normalized
             _save_sync(data)
             logger.info("Agent replaced element by id", page=page, id=id)
-            return {"status": "ok", "page": page, "id": id, "action": "updated"}
+            errors = _check_container_errors(slides[page], page)
+            _reject_if_errors(errors)
+            return {
+                "status": "ok",
+                "page": page,
+                "id": id,
+                "action": "updated",
+            }
     normalized["id"] = id
     shapes.append(normalized)
     _save_sync(data)
     logger.info("Agent appended new element", page=page, id=id)
-    return {"status": "ok", "page": page, "id": id, "action": "appended"}
+    errors = _check_container_errors(slides[page], page)
+    _reject_if_errors(errors)
+    return {
+        "status": "ok",
+        "page": page,
+        "id": id,
+        "action": "appended",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -366,8 +472,8 @@ async def agent_reset():
 @router.post("/export")
 async def agent_export(
     output_path: str = Query(..., description="完整输出路径，如 D:/output/my.pptx"),
-    template_name: str = Query(None, description="覆盖模板名"),
-    color_scheme: str = Query(None, description="覆盖配色名"),
+    template_name: str = Query(..., description="模板名，必填，如 标准1"),
+    color_scheme: str = Query(..., description="配色名，必填，如 深邃蓝"),
 ):
     data = _load_sync()
     try:
@@ -375,50 +481,45 @@ async def agent_export(
     except Exception as e:
         logger.error("Agent export schema validation failed", error=f"{e}\n{traceback.format_exc()}")
         raise HTTPException(400, detail=f"同步文件数据结构校验失败，可能需要先重建：{e}")
-    if template_name is not None:
-        pres.template_name = template_name
-    if color_scheme is not None:
-        pres.color_scheme = color_scheme
+    pres.template_name = template_name
+    pres.color_scheme = color_scheme
     # 模板模式检查：对照版式的实际占位符定义做校验
-    if pres.template_name:
-        from ppt_render_engine.core.template import get_template_manager
-        tm = get_template_manager()
-        try:
-            layouts = tm.list_layouts(pres.template_name)
-        except Exception:
-            layouts = []
-        layout_index: dict[str, dict] = {}
-        for lay in layouts:
-            layout_index[str(lay["index"])] = lay
-            layout_index[lay["name"]] = lay
-        names = sorted(layout_index.keys())
-        for si, slide in enumerate(pres.slides):
-            lid = slide.layout_id or ""
-            lay = layout_index.get(lid) or layout_index.get(str(lid))
-            if not lay and lid:
-                raise HTTPException(400, detail=(
-                    f"套用模板「{pres.template_name}」第{si}页的 layout_id「{lid}」"
-                    f"在模板中不存在。可用版式: {names}"
-                ))
+    from ppt_render_engine.core.template import get_template_manager
+    tm = get_template_manager()
+    try:
+        layouts = tm.list_layouts(pres.template_name)
+    except Exception:
+        layouts = []
+    layout_index: dict[str, dict] = {}
+    for lay in layouts:
+        layout_index[str(lay["index"])] = lay
+        layout_index[lay["name"]] = lay
+    names = sorted(layout_index.keys())
+    for si, slide in enumerate(pres.slides):
+        lid = slide.layout_id or ""
+        lay = layout_index.get(lid) or layout_index.get(str(lid))
+        if not lay and lid:
+            raise HTTPException(400, detail=(
+                f"套用模板「{pres.template_name}」第{si}页的 layout_id「{lid}」"
+                f"在模板中不存在。可用版式: {names}"
+            ))
             for sh in slide.shapes:
                 if not sh.placeholder:
                     raise HTTPException(400, detail=(
                         f"套用模板「{pres.template_name}」第{si}页形状「{sh.id}」"
-                        f"缺少 placeholder。所有元素都必须关联一个版式占位符，"
+                        f"缺少 placeholder。所有顶层形状都必须关联一个版式占位符，"
                         f"标明它属于哪个槽位。可用占位符: "
                         + ", ".join(f"{p['idx']}={p['name']}" for p in lay.get("placeholders", []))
                     ))
-            # 检查形状间重叠
-            for i, a in enumerate(slide.shapes):
-                for b in slide.shapes[i + 1:]:
-                    if not _overlap(a, b):
-                        continue
-                    ratio = _overlap_ratio(a, b)
-                    if ratio > 0.3:
-                        logger.warning(
-                            f"套用模板第{si}页形状重叠",
-                            a=a.id, b=b.id, overlap=f"{ratio:.0%}"
-                        )
+                # 检查占位符类型是否为系统槽位
+                ph_idx = sh.placeholder
+                matched_ph = next((p for p in lay.get("placeholders", []) if str(p["idx"]) == ph_idx), None)
+                if matched_ph and matched_ph.get("type") in ("DT", "FTR", "SLD_NUM"):
+                    raise HTTPException(400, detail=(
+                        f"套用模板「{pres.template_name}」第{si}页形状「{sh.id}」"
+                        f"使用了系统占位符 idx={ph_idx}({matched_ph['type']})，"
+                        f"该槽位不是内容区（日期/页脚/编号），请使用内容占位符"
+                    ))
     abs_path = os.path.abspath(output_path)
     os.makedirs(os.path.dirname(abs_path), exist_ok=True)
     try:
@@ -436,19 +537,33 @@ async def agent_export(
 
 
 # ---------------------------------------------------------------------------
-# 10. GET /agent/example  —  Return a complete example for the model to learn
+# 10. GET /agent/example  —  Return a minimal example presentation
 # ---------------------------------------------------------------------------
 
-_EXAMPLE_FILE = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'storage', 'examples', 'default.json')
+_EXAMPLE = {
+    "title": "示例演示文稿",
+    "slides": [
+        {
+            "layout_id": "标题幻灯片",
+            "shapes": [
+                {"id": "0-标题", "type": "textbox", "placeholder": "0", "text_content": [{"alignment": "center", "runs": [{"text": "示例标题", "font_size": 540000, "bold": True}]}]},
+                {"id": "0-副标题", "type": "textbox", "placeholder": "1", "text_content": [{"alignment": "center", "runs": [{"text": "副标题文字", "font_size": 228600}]}]}
+            ]
+        },
+        {
+            "layout_id": "标题和内容",
+            "shapes": [
+                {"id": "1-标题", "type": "textbox", "placeholder": "0", "text_content": [{"runs": [{"text": "内容页标题", "font_size": 360000, "bold": True}]}]},
+                {"id": "1-正文", "type": "textbox", "placeholder": "1", "text_content": [{"runs": [{"text": "正文内容", "font_size": 177800}]}]}
+            ]
+        }
+    ]
+}
 
 
 @router.get("/example")
 async def agent_example():
-    try:
-        with open(_EXAMPLE_FILE, encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        raise HTTPException(500, detail=f"读取示例文件失败: {e}")
+    return _EXAMPLE
 
 
 # ---------------------------------------------------------------------------
@@ -472,6 +587,16 @@ async def agent_list_schemes():
     from ppt_render_engine.core.color_scheme import get_color_scheme_manager
     csm = get_color_scheme_manager()
     return {"schemes": csm.list_schemes(), "default": csm.get_default_name()}
+
+
+@router.get("/schemes/{name}")
+async def agent_get_scheme(name: str):
+    from ppt_render_engine.core.color_scheme import get_color_scheme_manager
+    csm = get_color_scheme_manager()
+    colors = csm.get_colors(name)
+    if not colors:
+        raise HTTPException(404, detail=f"配色方案不存在: {name}")
+    return {"name": name, "colors": colors}
 
 
 @router.get("/images")

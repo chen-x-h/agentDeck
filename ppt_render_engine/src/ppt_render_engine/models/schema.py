@@ -1,3 +1,4 @@
+from __future__ import annotations
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from enum import Enum
@@ -11,6 +12,7 @@ class ShapeType(str, Enum):
 
 
 class TextRun(BaseModel):
+    model_config = {"extra": "forbid"}
     text: str
     font_size: Optional[float] = None
     font_name: Optional[str] = None
@@ -22,6 +24,7 @@ class TextRun(BaseModel):
 
 
 class Paragraph(BaseModel):
+    model_config = {"extra": "forbid"}
     runs: List[TextRun]
     alignment: Optional[str] = "left"
     line_spacing: Optional[float] = None
@@ -31,6 +34,7 @@ class Paragraph(BaseModel):
 
 
 class ImageContent(BaseModel):
+    model_config = {"extra": "forbid"}
     data: Optional[str] = None
     url: Optional[str] = None
     path: Optional[str] = None
@@ -43,6 +47,7 @@ class ImageContent(BaseModel):
 
 
 class CellContent(BaseModel):
+    model_config = {"extra": "forbid"}
     text: str
     colspan: Optional[int] = 1
     rowspan: Optional[int] = 1
@@ -53,12 +58,14 @@ class CellContent(BaseModel):
 
 
 class TableContent(BaseModel):
+    model_config = {"extra": "forbid"}
     rows: int
     cols: int
     cells: List[List[CellContent]]
 
 
 class Shape(BaseModel):
+    model_config = {"extra": "forbid"}
     id: Optional[str] = None
     type: ShapeType
     left: float = 0
@@ -78,9 +85,15 @@ class Shape(BaseModel):
     border_style: Optional[str] = "solid"
     shadow: Optional[bool] = False
     placeholder: Optional[str] = None
+    children: Optional[List[Shape]] = Field(
+        default=None,
+        description="子形状列表（容器模式）。有此字段时 shape 自身不渲染，"
+                    "子元素坐标相对于该 shape 的 left/top",
+    )
 
 
 class Slide(BaseModel):
+    model_config = {"extra": "forbid"}
     id: Optional[int] = None
     width: float = 12192000
     height: float = 6858000
@@ -93,12 +106,14 @@ class Slide(BaseModel):
 
 
 class SlideMaster(BaseModel):
+    model_config = {"extra": "forbid"}
     id: Optional[str] = None
     name: Optional[str] = None
     slide: Optional[Slide] = None
 
 
 class Presentation(BaseModel):
+    model_config = {"extra": "forbid"}
     title: Optional[str] = None
     slide_width: float = 12192000
     slide_height: float = 6858000
